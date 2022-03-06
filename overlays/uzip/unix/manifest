@@ -8,7 +8,7 @@
 # https://www.freebsd.org/doc/en_US.ISO8859-1/books/porters-handbook/book.html#makefile-naming-revepoch
 cat << EOF
 name:          unix
-version:       10.0-beta4
+version:       10.0-beta5
 origin:        OpenBSD
 comment:       Package that installs MacOS and MRUnix core components
 arch:          freebsd:12:x86:64
