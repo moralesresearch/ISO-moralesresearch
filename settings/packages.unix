@@ -196,3 +196,6 @@ dvd+rw-tools
 libqrencode
 zip
 firefox
+# Code development / tools
+gcc
+vscode
