@@ -2,7 +2,7 @@
 based on helloSystem (credit to them!)
 ## Release
 
-The latest release build 10.0 (beta) can be downloaded [here](../../releases/tag/r0.6.0).
+The latest release build 10.0 (beta) can be downloaded [here](https://gitlab.com/morales-research-corporation/os-development/mr-unix/-/releases).
 
 ## System Requirements for live media
 
