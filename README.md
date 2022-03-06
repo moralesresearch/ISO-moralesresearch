@@ -1,8 +1,8 @@
-# Morales Research Unix X Live ISO builder [![Build Status](https://api.cirrus-ci.com/github/helloSystem/ISO.svg)](https://cirrus-ci.com/github/helloSystem/ISO)
+# Morales Research Unix OS X (Beta 5) Live ISO builder 
 based on helloSystem (credit to them!)
 ## Release
 
-The latest release build 10.0 (beta) can be downloaded [here](https://gitlab.com/morales-research-corporation/os-development/mr-unix/-/releases).
+The latest release build 10.0 (Beta 5) can be downloaded [here](https://gitlab.com/morales-research-corporation/os-development/mr-unix/-/releases).
 
 ## System Requirements for live media
 
