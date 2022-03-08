@@ -113,7 +113,7 @@ mkdir -p "${uzip}/Applications/"
 mkdir -p "${uzip}/System/"
 
 wget -q https://github.com/moralesresearch/Utilities/archive/master.zip
-unzip master.zip
+unzip Utilities-master.zip
 mv "Utilities-master/Root/"* "${uzip}"/
 mv 'Utilities-master/Internet' "${uzip}/Applications/"
 mv 'Utilities-master/3D Printing' "${uzip}/Applications/"
