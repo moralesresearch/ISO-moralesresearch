@@ -88,7 +88,7 @@ mv dsbexec "${uzip}/usr/local/bin/"
 rm -f dsbexec_FreeBSD.zip
 
 # Menu
-wget -q https://github.com/moralesresearch/Menu/releases/download/continuous/Menu_FreeBSD.zip
+wget -q https://github.com/helloSystem/Menu/releases/download/continuous/Menu_FreeBSD.zip
 unzip Menu_FreeBSD.zip
 rm -f Menu_FreeBSD.zip
 
@@ -113,7 +113,7 @@ mkdir -p "${uzip}/Applications/"
 mkdir -p "${uzip}/System/"
 
 wget -q https://github.com/moralesresearch/Utilities/archive/master.zip
-unzip Utilities-master.zip
+unzip master.zip
 mv "Utilities-master/Root/"* "${uzip}"/
 mv 'Utilities-master/Internet' "${uzip}/Applications/"
 mv 'Utilities-master/3D Printing' "${uzip}/Applications/"
