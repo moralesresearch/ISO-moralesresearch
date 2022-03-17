@@ -199,3 +199,6 @@ firefox
 # Code development / tools
 gcc
 vscode
+# Needed for xapp-thumbnailers
+devel/py-pyelftools
+squashfs-tools
