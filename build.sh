@@ -11,7 +11,7 @@ echo "Host system version: ${version}"
 
 if [ "${version}" = "13.0-RELEASE" ] ; then
   # version="13.0-RC3"
-  version="13.1-BETA1"
+  version="13.1-RC1"
 fi
 
 VER=$(echo "${version}" | cut -d "-" -f 1) # "12.2" or "13.0"

@@ -1,4 +1,4 @@
-# Morales Research Unix OS X (Beta 5) Live ISO builder 
+# Morales Research Unix OS X (Public Beta) Live ISO builder 
 based on helloSystem (credit to them!)
 ## Release
 
