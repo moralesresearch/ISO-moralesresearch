@@ -1,9 +1,9 @@
-NAME="MR Unix OS X 10.0"
-VERSION=10.0
-VERSION_ID=10.0-beta5
+NAME="Sun/OS UNIX"
+VERSION=6.1
+VERSION_ID=6.1b
 ID=freebsd
 ANSI_COLOR="0;31"
-PRETTY_NAME="MR Unix OS X 10.0 Beta 5"
+PRETTY_NAME="Sun/OS version 6.1"
 CPE_NAME=cpe:/o:freebsd:freebsd:13.0
 HOME_URL=https://FreeBSD.org/
 BUG_REPORT_URL=https://bugs.FreeBSD.org/
