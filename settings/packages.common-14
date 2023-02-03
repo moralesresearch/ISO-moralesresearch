@@ -22,7 +22,7 @@ gpu-firmware-kmod
 drm-510-kmod
 # drm-legacy-kmod # Does not exist in 13. FIXME: What happens to the devices that need it?
 libva-intel-driver
-# nvidia-driver # !i386 # Is now handled in build.sh initgfx()
+nvidia-driver # !i386 # Is now handled in build.sh initgfx()
 mesa-libs
 mesa-dri
 gpu-firmware-kmod
