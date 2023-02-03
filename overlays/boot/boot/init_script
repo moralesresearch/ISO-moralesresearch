@@ -1,3 +1,4 @@
+#!/bin/sh
 # Copyright (c) 2021, Simon Peter <probono@puredarwin.org>
 # All rights reserved.
 #
@@ -107,8 +108,9 @@ mkdir -p /var/run # Needed for slim?
 # mount -t unionfs -o below /media/.uzip/var /var
 # mkdir -p /var/run
 
-mount -t tmpfs tmpfs /usr/local
-mount -t unionfs -o below /media/.uzip/usr/local /usr/local
+# Avoid using '-o below' because it is known to be crashy
+mkdir -p /tmp/usr/local
+mount -t unionfs /tmp/usr/local /usr/local
 
 # /etc, needed for networking
 cp -R /media/.uzip/etc /tmp
@@ -146,15 +148,20 @@ if [ "$(sysctl -q -n kern.consmute)" = "1" ] ; then
   # No text consoles on Ctrl-Alt-F2
   echo "" > /etc/ttys
 else
+  # Prevent the kernel from rebooting immediately at a kernel panic
+  # so that one can see the last error message
+  sysctl kern.panic_reboot_wait_time=30
   # Enable application crash dumps to /tmp
-  sysctl savecore_enable="YES" # Crash dumps
-  sysctl kern.coredump=1
-  sysctl kern.corefile="/tmp/%N.core"
+  # What good is this on a Live ISO?
+  # sysctl savecore_enable="YES" # Crash dumps
+  # sysctl kern.coredump=1
+  # sysctl kern.corefile="/tmp/%N.core"
 fi
 
 # Allow /Applications to be modified
 mkdir -p /tmp/unionfs/Applications
 mount -t unionfs /tmp/unionfs/Applications /Applications
+chmod -R +w /Applications
 
 # Do not launch Welcome in Live mode
 mkdir -p /home/liveuser/.config/hello/
@@ -197,6 +204,17 @@ cat > /etc/rc.d/hostname << \EOF
 # REQUIRE: FILESYSTEMS
 # BEFORE:  netif
 EOF
+
+# VirtualBox
+PRODUCT=$(kenv -q "smbios.system.product")
+if [ "${PRODUCT}" = "VirtualBox" ] ; then
+  # Load VirtualBox guest kernel modules
+  kldload /boot/modules/vboxdrv.ko
+  kldload /boot/modules/vboxguest.ko
+  # Enable VirtualBox guest services
+  /usr/sbin/sysrc -f /etc/rc.conf vboxguest_enable="YES"
+  /usr/sbin/sysrc -f /etc/rc.conf vboxservice_enable="YES"
+fi
 
 # TODO: Consider moving this to the ISO generation stage
 # This writes entries to /etc/rc.conf

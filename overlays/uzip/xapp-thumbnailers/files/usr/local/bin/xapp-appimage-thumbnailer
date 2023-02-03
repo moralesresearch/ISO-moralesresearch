@@ -39,3 +39,6 @@ if icon_path != None:
     icon_path = os.path.join(TMP_DIR, "squashfs-root", icon_path)
     t.save_path(icon_path)
     os.system(f"rm -rf '{TMP_DIR}'")
+
+# probono: Add to launch.db
+subprocess.run(["bundle-thumbnailer", t.args.input])

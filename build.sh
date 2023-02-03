@@ -3,6 +3,9 @@
 # Exit on errors
 set -e
 
+# Workaround for cases when the running kernel doesn't exactly match the kernel on the ISO
+export IGNORE_OSVERSION=yes
+
 # Determine the version of the running host system.
 # Building ISOs for other major versions than the running host system
 # is not supported and results in broken images anyway
@@ -167,6 +170,7 @@ pkg_add_from_url()
       url=$1
       pkg_cachesubdir=$2
       abi=${3+env ABI=$3} # Set $abi to "env ABI=$3" only if a third argument is provided
+      echo "pkg_add_from_url: ${url}"
 
       pkgfile=${url##*/}
       if [ ! -e ${uzip}${pkg_cachedir}/${pkg_cachesubdir}/${pkgfile} ]; then
@@ -189,7 +193,7 @@ packages()
     echo "Major version 12, using quarterly packages"
   elif [ $MAJOR -eq 13 ] ; then
     echo "Major version 13, using quarterly packages"
-    sed -i '' -e 's|quarterly|release_1|g' "${uzip}/etc/pkg/FreeBSD.conf"
+    # sed -i '' -e 's|quarterly|release_1|g' "${uzip}/etc/pkg/FreeBSD.conf"
   elif [ $MAJOR -eq 14 ] ; then
     echo "Major version 14, hence changing /etc/pkg/FreeBSD.conf to use latest packages"
     sed -i '' -e 's|quarterly|latest|g' "${uzip}/etc/pkg/FreeBSD.conf"
@@ -211,8 +215,8 @@ packages()
     # Install packages beginning with 'https:'
     mkdir -p ${uzip}${pkg_cachedir}/furybsd-https
     for url in $(grep -e '^https' "${cwd}/settings/packages.$p"); do
-        # ABI=freebsd:12:$arch in an attempt to use package built on 12 for 13
-        pkg_add_from_url "$url" furybsd-https "freebsd:12:$arch"
+      # First, try installing this using the real major version, then try to install package built for major version 12
+      pkg_add_from_url "$url" furybsd-https || pkg_add_from_url "$url" furybsd-https "freebsd:12:$arch"
     done
   done
   # Install the packages we have generated in pkg() that are listed in transient-packages-list
@@ -222,7 +226,8 @@ packages()
     # to install local packages (not from a repository) that will
     # resolve dependencies from the repositories?
     # The following will just fail in the case of unmet dependencies
-    /usr/local/sbin/pkg-static -r ${uzip} add "${packages}/transient/${p}" # pkg-static add has no -y
+    ### /usr/local/sbin/pkg-static -r ${uzip} add "${packages}/transient/${p}" # pkg-static add has no -y
+    /usr/local/sbin/pkg -r ${uzip} add "${packages}/transient/${p}"
   done <"${packages}/transient/transient-packages-list"
   
   # Manifest of installed packages ordered by size in bytes
@@ -304,7 +309,7 @@ initgfx()
   /usr/local/sbin/pkg-static -c ${uzip} update # Needed if we are shipping additional repos 
   if [ "${arch}" != "i386" ] ; then
     if [ $MAJOR -lt 14 ] ; then
-      PKGS="quarterly"
+      PKGS="release_1"
       # PKGS="latest" # This must match what we specify in packages()
     else
       PKGS="latest"
@@ -437,12 +442,12 @@ developer()
   echo "$(cat "${livecd}"/spec.user | wc -l) items for user image"
 
   # Create the developer image
-  makefs -o label="Developer" "${iso}/developer.ufs" "${livecd}"/spec.developer.sorted
+  makefs -o label="Developer" -R 262144 "${iso}/developer.ufs" "${livecd}"/spec.developer.sorted
   developerimagename=$(basename $(echo ${isopath} | sed -e 's|.iso$|.developer.img|g'))
-  if [ $MAJOR -lt 13 ] ; then
+  if [ $MAJOR -gt 13 ] ; then
     mkuzip -o "${iso}/${developerimagename}" "${iso}/developer.ufs"
   else
-    # Use zstd when possible, which is available in FreeBSD beginning with 13
+    # Use zstd when possible, which is available in FreeBSD beginning with 13 but broken in 14 (FreeBSD bug 267082)
     mkuzip -A zstd -C 15 -d -s 262144 -o "${iso}/${developerimagename}" "${iso}/developer.ufs"
   fi
   rm "${iso}/developer.ufs"
@@ -455,12 +460,12 @@ developer()
 uzip() 
 {
   install -o root -g wheel -m 755 -d "${cdroot}"
-  ( cd "${uzip}" ; makefs "${cdroot}/rootfs.ufs" ../spec.user )
+  ( cd "${uzip}" ; makefs -b 75% -f 75% -R 262144 "${cdroot}/rootfs.ufs" ../spec.user )
   mkdir -p "${cdroot}/boot/"
-  if [ $MAJOR -lt 13 ] ; then
+  if [ $MAJOR -gt 13 ] ; then
     mkuzip -o "${cdroot}/boot/rootfs.uzip" "${cdroot}/rootfs.ufs"
   else
-    # Use zstd when possible, which is available in FreeBSD beginning with 13
+    # Use zstd when possible, which is available in FreeBSD beginning with 13 but broken in 14 (FreeBSD bug 267082)
     mkuzip -A zstd -C 15 -d -s 262144 -o "${cdroot}/boot/rootfs.uzip" "${cdroot}/rootfs.ufs"
   fi
 
@@ -495,7 +500,9 @@ boot()
   # It is not yet available for FreeBSD 14. TODO: Re-check later
   if [ "${MAJOR}" -lt 14 ] ; then
     if [ "${arch}" = "amd64" ] ; then
-      fetch -o "${cdroot}"/boot/kernel/geom_ventoy.ko.xz "https://github.com/ventoy/Ventoy/blob/master/Unix/ventoy_unix/FreeBSD/geom_ventoy_ko/${MAJOR}.x/64/geom_ventoy.ko.xz?raw=true"
+      # fetch -o "${cdroot}"/boot/kernel/geom_ventoy.ko.xz "https://github.com/ventoy/Ventoy/blob/master/Unix/ventoy_unix/FreeBSD/geom_ventoy_ko/${MAJOR}.x/64/geom_ventoy.ko.xz?raw=true"
+      # https://github.com/helloSystem/ISO/issues/385#issuecomment-1227631254 claims that Ventoy v1.0.70 works with FreeBSD 13.1
+      fetch -o "${cdroot}"/boot/kernel/geom_ventoy.ko.xz "https://github.com/ventoy/Ventoy/blob/v1.0.70/Unix/ventoy_unix/FreeBSD/geom_ventoy_ko/${MAJOR}.x/64/geom_ventoy.ko.xz?raw=true"
       unxz "${cdroot}"/boot/kernel/geom_ventoy.ko.xz
       # https://github.com/ventoy/Ventoy/discussions/1277
       # wget https://github.com/ventoy/Ventoy/files/7638059/geom_ventoy.zip

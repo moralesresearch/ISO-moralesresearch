@@ -6,6 +6,9 @@ set -e
 # Be verbose
 set -x
 
+# Allow all users to write extended attributes; setuid
+chmod +s "${uzip}/usr/sbin/setextattr"
+
 mkdir -p /tmp/system-overlay 
 cd /tmp/system-overlay
 
@@ -51,18 +54,24 @@ rm macOSBigSur.tar.gz
 wget "https://raw.githubusercontent.com/helloSystem/hello/master/branding/computer-hello.png" -O "${uzip}"/usr/local/share/icons/elementary-xfce/devices/128/computer-hello.png
 
 # KWin
-if [ "${MAJOR}" == "12" ] ; then
-  wget -q "https://github.com/helloSystem/KWin/releases/download/main-12.2/KWin.app.zip"
+if [ "${MAJOR}" == "13" ] ; then
+  wget -q "https://github.com/helloSystem/KWin/releases/download/main-13.1/KWin.app.zip"
 else
-  wget -q "https://github.com/helloSystem/KWin/releases/download/main-13.0/KWin.app.zip"
+  wget -q "https://github.com/helloSystem/KWin/releases/download/main-14.0/KWin.app.zip"
 fi
 unzip KWin.app.zip
 rm KWin.app.zip
+
+wget -q "https://raw.githubusercontent.com/helloSystem/BreezeEnhanced/master/etc/xdg/breezerc" -O "${uzip}/usr/local/etc/xdg/breezerc"
+wget -q "https://raw.githubusercontent.com/helloSystem/BreezeEnhanced/master/etc/xdg/kwinrc" -O "${uzip}/usr/local/etc/xdg/kwinrc"
 
 # Filer
 wget -q https://github.com/helloSystem/Filer/releases/download/continuous/Filer_FreeBSD.zip
 unzip Filer_FreeBSD.zip
 rm -f Filer_FreeBSD.zip
+
+# Ugly hack so that drag and drop in Filer shows the normal mouse cursor (arrow pointer) instead of one with "+"
+chroot "${uzip}" ln -sf /usr/local/share/icons/default/cursors/left_ptr /usr/local/share/icons/default/cursors/dnd-copy
 
 # QtPlugin
 wget -q https://github.com/helloSystem/QtPlugin/releases/download/continuous/QtPlugin_FreeBSD.zip
@@ -77,7 +86,8 @@ sudo mv stylesheet.qss "${uzip}/usr/local/etc/xdg/"
 # launch
 wget -q https://github.com/helloSystem/launch/releases/download/continuous/launch_FreeBSD.zip
 unzip launch_FreeBSD.zip
-mv launch "${uzip}/usr/local/bin/"
+cp launch "${uzip}/usr/local/sbin/xdg-open" # Override the one provided by devel/xdg-utils
+mv launch open bundle-thumbnailer "${uzip}/usr/local/bin/"
 rm -f launch_FreeBSD.zip
 
 # DSBexec
@@ -105,8 +115,9 @@ rm -f Dock_FreeBSD.zip
 
 mv * "${uzip}/System/"
 
+# Scheduled for removal
 # Symlink menubar in place; FIXME: Remove once desktop2app does not need to restart it from there anymore
-chroot "${uzip}" ln -s /System/Menu.AppDir/usr/bin/menubar /usr/local/bin
+# chroot "${uzip}" ln -s /System/Menu.app/usr/bin/menubar /usr/local/bin
 
 # Add applications from the helloSystem/Utilities repository
 mkdir -p "${uzip}/Applications/"
@@ -157,6 +168,7 @@ git clone https://github.com/BasioMeusPuga/Lector
 rm -rf Lector/.git
 mv Lector Lector.app
 mkdir -p Lector.app/Resources
+echo "application/epub+zip" > Lector.app/Resources/can-open
 mv Lector.app/* Lector.app/Resources 2>/dev/null || true
 ( cd Lector.app/ ; ln -s Resources/lector/__main__.py Lector )
 cp Lector.app/Resources/lector/resources/raw/Lector.png Lector.app/Resources/
@@ -209,11 +221,12 @@ chroot "${uzip}" /usr/local/bin/desktop2app /usr/local/share/applications/qpdfvi
 # mkdir -p "${uzip}"/usr/share/skel/Desktop
 # cd "${uzip}"/usr/share/skel/Desktop/
 # ln -s /Applications .
+chroot "${uzip}" ln -s /Applications/Internet/Falkon.app /usr/share/skel/Desktop
 
 # More Preferences
 mkdir -p "${uzip}/Applications/Preferences"
 chmod g+w "${uzip}/Applications/Preferences"
-chroot "${uzip}" /usr/local/bin/desktop2app /usr/local/share/applications/lxqt-config-globalkeyshortcuts.desktop /Applications/Preferences/
+# chroot "${uzip}" /usr/local/bin/desktop2app /usr/local/share/applications/lxqt-config-globalkeyshortcuts.desktop /Applications/Preferences/
 chroot "${uzip}" /usr/local/bin/desktop2app /usr/local/share/applications/arandr.desktop /Applications/Preferences/ -g
 chroot "${uzip}" /usr/local/bin/desktop2app /usr/local/share/applications/system-config-printer.desktop /Applications/Preferences/
 echo "GenericName=Sound" >> "${uzip}"/usr/local/share/applications/dsbmixer.desktop
@@ -270,6 +283,9 @@ chroot "${uzip}" python3 -m pip install translate-toolkit
 # Needed for Display.app
 chroot "${uzip}" python3 -m pip install pyedid
 
+# Needed for FUSE mounting by users
+chmod 1777 ${uzip}/media
+
 # Workaround for: appmenu-gtk-module is not yet in quarterly packages; FIXME: install it from the packages once it is there
 # https://github.com/helloSystem/ISO/issues/20
 # FIXME: This fails on 13-CURRENT https://github.com/helloSystem/ISO/issues/27
@@ -291,7 +307,7 @@ IGNORE_OSVERSION=yes /usr/local/sbin/pkg-static -c "${uzip}" add "https://github
 # Prevent the hello package from being upgraded with an unrelated package of the same name
 # and prevent the modifications made to the system in this script from being overwritten
 # by package updates done by the user at a later time; FIXME: Find a cleaner way
-chroot "${uzip}" pkg lock -y hello automount slim gvfs dejavu liberation-fonts-ttf
+chroot "${uzip}" pkg lock -y hello automount slim dejavu liberation-fonts-ttf
 rm ${uzip}/etc/resolv.conf
 umount ${uzip}/var/cache/pkg
 umount ${uzip}/dev
@@ -409,7 +425,7 @@ chroot ${uzip} sh -c 'for FILE in $(pkg list font-misc-meltho) ; do rm $FILE ; d
 # Arial, Times New Roman, and Courier New. Ever since, every Linux desktops looks ugly
 chroot ${uzip} sh -c 'for FILE in $(pkg list liberation-fonts-ttf) ; do rm $FILE ; done'
 
-chroot "${uzip}" update-desktop-database # Needed for mountarchive to be associated with the MIME types it can handle; TODO: Get rid of XDG
+# chroot "${uzip}" update-desktop-database # Needed for mountarchive to be associated with the MIME types it can handle; TODO: Get rid of XDG
 
 # Temporary workaround for https://github.com/helloSystem/ISO/issues/14
 # mv "${uzip}/usr/sbin/pkg" "${uzip}/usr/sbin/pkg.real"
@@ -462,6 +478,20 @@ fi
 wget -c -q "https://github.com/helloSystem/QKeySequenceOverride/releases/download/continuous/libQKeySequenceOverride.so.1.0.0"
 mv libQKeySequenceOverride.so.1.0.0 "${uzip}/usr/local/lib/"
 
+# 'pause' command that does nothing, but never exits
+# Needed for /usr/local/bin/start-hello
+cat > /tmp/pause.c <<\EOF
+#define _POSIX_SOURCE
+#include <unistd.h>
+
+int main() {
+    pause();
+}
+EOF
+clang /tmp/pause.c -o /tmp/pause
+strip /tmp/pause 
+mv /tmp/pause "${uzip}/usr/local/bin/"
+
 # FIXME: Desperate attempt at reducing image size
 rm -rf "${uzip}"/usr/local/share/icons/breeze*
 rm -rf "${uzip}"/usr/local/*-portbld-*/ # What is it; is it actually needed? https://forums.freebsd.org/threads/what-is-the-portbld-directory.71759/
@@ -482,10 +512,9 @@ chroot ${uzip} sh -c 'for FILE in $(pkg list plasma5-breeze) ; do rm $FILE ; don
 
 # FIXME: Prevent extraneous versions of Python from being installed in the first place
 # https://github.com/helloSystem/ISO/issues/191#issuecomment-861822967
-chroot ${uzip} pkg remove -y python310 python39 python37 python36 python27
 # Do not fail if a certain python version can't be uninstalled
 chroot ${uzip} pkg remove -y python310 || true
-chroot ${uzip} pkg remove -y python39 || true
+chroot ${uzip} pkg remove -y python38 || true
 chroot ${uzip} pkg remove -y python37 || true
 chroot ${uzip} pkg remove -y python36 || true
 chroot ${uzip} pkg remove -y python27 || true
@@ -506,4 +535,14 @@ fi
 find "${uzip}"/Applications -type d -exec chmod g+rwx {} \;
 find "${uzip}"/Applications -type f -exec chmod g+rw {} \; 
 
-chroot "${uzip}" update-desktop-database # Needed?
+# chroot "${uzip}" update-desktop-database # Needed?
+
+# Add some random data to debug https://github.com/helloSystem/ISO/issues/389
+# TODO: Remove this
+# dd if=/dev/random of="${uzip}"/random.data bs=1M count=2
+# hello-0.8.0_0H106-FreeBSD-14.0-amd64.iso WITH the above line uncommented crashes with:
+# panic: guz_zstd_decompress: Expected 262144 bytes, got 163840
+
+# Create and lock a package that depends on non-automatic packages on the ISO
+# https://github.com/helloSystem/hello/issues/161#issuecomment-1267976086
+chroot "${uzip}" /usr/local/libexec/lock-hellosystem-essential-packages

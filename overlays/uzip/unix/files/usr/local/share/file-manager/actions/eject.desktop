@@ -3,8 +3,12 @@ Type=Action
 Name=Eject
 Name[de]=Auswerfen
 Icon=media-eject
-Profiles=profile-zero;
+Profiles=profile-zero;profile-one;
 
 [X-Action-Profile profile-zero]
+MimeTypes=inode/directory;
+Exec=eject-and-clean %f
+
+[X-Action-Profile profile-one]
 MimeTypes=inode/mount-point;
-Exec=sudo eject /media/%w
+Exec=eject-and-clean /media/%w

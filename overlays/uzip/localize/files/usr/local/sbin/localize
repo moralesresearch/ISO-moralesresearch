@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/bin/env python3
 
 # localize
 # Use different signals to automatically determine country, language, and timezone
@@ -38,6 +38,8 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import os, sys, subprocess
+
+got_hint = False
 
 if os.geteuid() != 0:
     exit("You need to have root privileges. Exiting.")
@@ -112,6 +114,7 @@ try:
                 # print(language)
                 locale = "%s_%s.UTF-8" % (language, country)
                 timezone = timezones[index]
+                got_hint = True
                 break
         if "prev-lang" in line:
             relevant_line = True # The next line after this one is the one we are after
@@ -146,11 +149,16 @@ for line in subprocess.check_output(usbtool).split(b'\n'):
         # print(language)
         locale = "%s_%s.UTF-8" % (language, country)
         timezone = timezones[index]
+        got_hint = True
         # print(timezone)
     
 # TODO: As a last resort, use network localization
 
 # After all methods of localization are exhausted, apply/export our findings
+
+if got_hint == False:
+    print("--> localize got no hints, exiting")
+    exit(0)
 
 if "DISPLAY" in os.environ.keys():
     run(["setxkbmap", "-layout", country.lower()])  # Works only if called as the user from within Xorg

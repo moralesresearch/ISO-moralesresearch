@@ -7,9 +7,9 @@ based on helloSystem (credit to them!)
 
 The latest release build 10.0 (Beta 5) "this is the old MR UNIX OS" can be downloaded [here](https://gitlab.com/morales-research-corporation/os-development/mr-unix/-/releases).
 
-# New Release
+# New Release (v6.1-pb)
 
-The new release will be coming out soon.
+The new release is now avaliable to download on [Github](https://github.com/moralesresearch/ISO/releases)
 
 ## System Requirements for live media
 
