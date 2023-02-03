@@ -1,8 +1,12 @@
 #!/bin/sh
 
-# This script is intended to be invoked by a desktop file
+set -x
+
 # from /usr/local/share/xsessions
 # where the display manager (login window) picks it up
+
+# Kill leftovers from previous session
+killall daemon
 
 # Normally $PATH gets changed by slim anyway so it's probably ok to change it here again
 # The closer to the user, the more upfront so that users can override what the system provides
@@ -37,6 +41,7 @@ if [ -f "/usr/sbin/pciconf" ] ; then
   /usr/sbin/pciconf -lv 2>/dev/null | /usr/bin/grep -q VirtualBox 2>/dev/null
   if [ $? -eq 0 ] ; then
       export VIRTUAL_MACHINE=YES
+      /usr/local/bin/VBoxClient-all & # Since /usr/local/etc/xdg/autostart/ is not interpreted
   fi
 fi
 
@@ -44,6 +49,7 @@ if [ -f "/usr/sbin/pciconf" ] ; then
   /usr/sbin/pciconf -lv 2>/dev/null | /usr/bin/grep -q VMware 2>/dev/null
   if [ $? -eq 0 ] ; then
       export VIRTUAL_MACHINE=YES
+      /usr/local/bin/vmware-user-suid-wrapper & # Since /usr/local/etc/xdg/autostart/ is not interpreted
   fi
 fi
 
@@ -57,7 +63,7 @@ fi
 # Disable core dumps for applications
 ulimit -c 0
 
-# Enable FUSE and allow non-root users to mount, which gvfs requires to work
+# Enable FUSE and allow non-root users to mount
 # FIXME: Remove the need for those lines in this script; how?
 # FIXME: It will not work in installed mode like this, because the user may not be able to use sudo without entering a password
 sudo sysctl vfs.usermount=1 || true
@@ -89,6 +95,14 @@ if [ -z $DBUS_SESSION_BUS_ADDRESS ] ; then
   export $(dbus-launch)
 fi
 
+# Allow for sshfs to ask for a password
+# and to do identity verification
+if [ -z $SSH_AUTH_SOCK ] ; then
+  eval $(ssh-agent -a "/tmp/${USER}-ssh-agent")
+  export SSH_ASKPASS=/usr/local/bin/lxqt-openssh-askpass
+  export SSH_AUTH_SOCK="${SOCKET_PATH}"
+fi
+
 # Set locale if it is not set already
 # and if /usr/local/var/localize/include exists
 # (might have been created by the localize script during boot)
@@ -96,17 +110,15 @@ fi
 if [ -f "/usr/local/etc/X11/xorg.conf.d/00-keyboard.conf" ] ; then
   echo "Skipping keyboard autoconfiguration because /usr/local/etc/X11/xorg.conf.d/00-keyboard.conf exists"
 else
-  if [ -z "${LANG}" ] || [ "C.UTF-8" = "${LANG}" ]  ; then
-    if [ -e "/usr/local/var/localize/include" ] ; then
-      . /usr/local/var/localize/include
-      export LANG
-      export MM_CHARSET
-      export TZ # This leads to correct time, and to time/date formatting
-      COUNTRY=$(echo "${LANG}" | cut -d _ -f 2 | cut -d "." -f 1 | tr '[A-Z]' '[a-z]')
-      setxkbmap -layout "${COUNTRY}"
-      setxkbmap -variant nodeadkeys 2>/dev/null
-      setxkbmap -query
-    fi
+  if [ -e "/usr/local/var/localize/include" ] ; then
+    . /usr/local/var/localize/include
+    export LANG
+    export MM_CHARSET
+    export TZ # This leads to correct time, and to time/date formatting
+    COUNTRY=$(echo "${LANG}" | cut -d _ -f 2 | cut -d "." -f 1 | tr '[A-Z]' '[a-z]')
+    setxkbmap -layout "${COUNTRY}"
+    setxkbmap -variant nodeadkeys 2>/dev/null
+    setxkbmap -query
   fi
 fi
 
@@ -171,6 +183,11 @@ export SUDO_ASKPASS=/usr/local/bin/askpass
 export VISUAL=/usr/local/bin/nano
 export EDITOR=/usr/local/bin/nano
 
+# Enable GPU acceleration in Falkon and other WebEngine based browsers
+# Test with:
+# chrome://gpu
+export QTWEBENGINE_CHROMIUM_FLAGS="--ignore-gpu-blacklist --enable-gpu-rasterization --enable-native-gpu-buffers"
+
 ##################
 # Global menus for Gtk applications
 # 
@@ -228,12 +245,12 @@ fi
 
 # Launch per-user daemons
 
-# Global keyboard shortcuts
+# Candicate for removal: Global keyboard shortcuts are now managed by kglobalaccel
 # It reads its configuration from
 # ${XDG_CONFIG_HOME}/lxqt/globalkeyshortcuts.conf
 # --config-file=FILENAME can be used several times, the last one is used for saving
 # TODO: Move this functionality into Menu?
-/usr/local/bin/lxqt-globalkeysd &
+# /usr/local/bin/lxqt-globalkeysd &
 
 # Window decorations
 if [ "$HIDPI" = "" ] ; then
@@ -250,7 +267,7 @@ fi
 #   export KWIN_TRIPLE_BUFFER=1
 # fi
 
-launch /System/KWin.app &
+/System/KWin.app/KWin 2>/dev/null &
 
 # Desktop notifications
 dunst &
@@ -273,26 +290,39 @@ if [ -z "$VIRTUAL_MACHINE" ] ; then
   redshift -t 6500:5500 -l$(getlalo) &
 fi
 
-# Menubar
+# If we still have no LANG, ask the user
+if [ -z "${LANG}" ] || [ "C.UTF-8" = "${LANG}" ]  ; then
+  export LANG=$(launch /System/Language.app)
+fi
+
+# Menubar (restart automatically if it crashes)
 export GTK_MODULES=appmenu-gtk-module
-launch Menu &
+daemon -R 3 launch /System/Menu.app/Menu &
 
 # FIXME: Does the next line have to run AFTER menubar?
 # Else we see no QMenus at all, as if something was badly crashing?
 ### "${HERE}"/dde-globalmenu-service & # gmenudbusmenuproxy without Plasma deps
 gmenudbusmenuproxy &
 
-# Desktop
-launch Filer &
+# Desktop (restart automatically if it crashes)
+sleep 1 # This seems to be absolutely critical. Without this the desktop does not boot
+daemon -R 3 launch /System/Filer.app/Filer &
 
-# Welcome Wizard
+# Welcome Wizard and file system indexing
 if [ ! -e "${HOME}/.config/hello/.helloSetupDone" ] ; then
   launch Welcome
+  ( sleep 120 && balooctl enable || true ) & # Enable indexing after 2 minutes
+else
+  if [ "${USER}" != "liveuser" ] ; then
+    ( sleep 30 && daemon -r -R 120 baloo_file || true ) & # Resume indexing after 30 seconds and restart it if it fails
+  fi
 fi
+
 
 # Wait for Menu to appear on D-Bus; this is needed for autostart to work properly
 while true; do 
   RESULT=$(dbus-send --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.ListNames | grep AppMenu)
+  sleep 1
   if [ "${RESULT}" != "" ] ; then
     break
   fi
@@ -301,6 +331,7 @@ done
 # System-wide autostart
 for APP in /Applications/Autostart/* ; do
   echo "Autostarting ${APP}"
+  # sleep 0.5
   launch "${APP}" &
 done
 # Per-user autostart
@@ -310,12 +341,12 @@ done
 # done
 
 # Create placeholder .app bundles for applications installed with pkg
-desktop2app &
+daemon -R 3 desktop2app &
 
-# Dock
-# /System/Dock.AppDir/AppRun & # FIXME: Reinstate once it works like this
-/System/Dock.AppDir/usr/bin/cyber-dock
+# Prevent error message from appearing when the Trash directory does not exist yet
+# TODO: Handle this in Filer, then remove here
+mkdir -p ~/.local/share/Trash/files
 
 # Here we must start something that never exits;
 # the session ends when that thing exits
-read 1
+/usr/local/bin/pause

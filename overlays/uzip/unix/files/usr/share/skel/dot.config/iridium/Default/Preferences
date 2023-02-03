@@ -1,0 +1,16 @@
+{
+   "browser":{
+      "custom_chrome_frame":false,
+      "has_seen_welcome_page":true
+   },
+"extensions": {
+	"settings": {
+		"fihnjjcciajhdojfnbdddfaoknhalnja": {
+			"incognito": true
+		},
+		"cjpalhdlnbpafiamejdnhcphjbkeiagm": {
+			"incognito": true
+		}
+	}
+    }
+}

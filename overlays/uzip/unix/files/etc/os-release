@@ -1,9 +1,9 @@
 NAME="Sun/OS UNIX"
 VERSION=6.1
-VERSION_ID=6.1b
+VERSION_ID=6.1-pb
 ID=freebsd
 ANSI_COLOR="0;31"
-PRETTY_NAME="Sun/OS version 6.1"
+PRETTY_NAME="Sun/OS version 6.1 (Public Beta)"
 CPE_NAME=cpe:/o:freebsd:freebsd:13.0
 HOME_URL=https://FreeBSD.org/
 BUG_REPORT_URL=https://bugs.FreeBSD.org/

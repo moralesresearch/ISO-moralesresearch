@@ -1,5 +1,7 @@
 # Graphical login manager for X11
 slim
+# Required for QtPlugin; TODO: Find out why and remove the need for it
+libqtxdg
 # Zenity
 zenity
 # Required for hello QtPlugin and Menu
@@ -17,8 +19,8 @@ qt5-graphicaleffects
 # plasma5-plasma-workspace
 # GTK module for putting application menubar in a global menubar
 appmenu-gtk-module
-# Global keyboard shortcuts registration
-lxqt-globalkeys
+# Global keyboard shortcuts registration is now handled by kglobalaccel
+# lxqt-globalkeys # Is now handled by kglobalaccel
 # Compositor for drop shadows
 # picom # No more needed with KWin.app
 # Lightweight notification daemon
@@ -40,18 +42,12 @@ qt5-sensors
 qt5-wayland
 # Custom version of the Breeze theme for added configurability; https://github.com/tsujan/BreezeEnhanced/issues/32
 # We now ship it in KWin.app
-# https://github.com/helloSystem/BreezeEnhanced/releases/download/continuous/breezeenhanced-0.1.0.txz
+# https://github.com/helloSystem/BreezeEnhanced/releases/download/continuous/breezeenhanced-0.1.0.pkg
 # Library used to read freedesktop.org menus; Filer needs this
 menu-cache
 # Library to read digital camera file meta-data; Filer needs this
 libexif
-# GNOME virtual file system; FIXME: Find something non-GNOME
-# This has some really strange dependencies such as webkit2-gtk3
-# and samba
-gvfs
 # Browser
-# falkon # Pulls in way too many Qt dependencies, so we are light-installing it
-# falkon-qtonly, which is not in http://pkg.freebsd.org/FreeBSD:12:amd64/release_2/ packages yet and which we are hence installing from a https URL, needs this
 kf5-ki18n
 # Message bus system for inter-application communication
 dbus
@@ -71,12 +67,14 @@ qpdfview
 # GUI to set up printers. TODO: Find Qt-based system-config-printer replacement
 system-config-printer
 # hplip is apparently needed for non-network HP printers; https://github.com/helloSystem/ISO/issues/225
-hplip
+# but it is not yet available in FreeBSD 14, hence moving it to packages.common-13 for now
+# hplip
 # cups-pdf is needed to print PDFs
 cups-pdf
-# The 'desktop2app' command needs py37-xdg
+# The 'desktop2app' command needs devel/py-xdg and devel/py-xattr
 devel/py-xdg
-# The 'desktop2app' command needs py37-psutil for watching the filesystem
+devel/py-xattr
+# The 'desktop2app' command needs sysutils/py-psutil for watching the filesystem
 sysutils/py-psutil
 # The 'app' command needs fusefs-unionfs
 fusefs-unionfs
@@ -179,8 +177,7 @@ eject
 # linux-c7-nss
 # linux-c7-alsa-lib
 # linux-c7-cups-libs
-# https URL needed as long as falkon-qtonly is not in releaseX packages
-https://github.com/helloSystem/ISO/releases/download/assets/falkon-qtonly-3.1.0.txz
+falkon-qtonly
 # Needed by gmenudbusmenuproxy which is required for the global menu
 kf5-kconfig
 # Needed by Dock
@@ -221,3 +218,11 @@ vscode
 # Needed for xapp-thumbnailers
 devel/py-pyelftools
 squashfs-tools
+# Make it easier for people to visualise dependencies
+ports-mgmt/pkg_tree
+# Local filesystem search
+kf5-baloo
+# Needed for MIDI controllers, like MIDI keyboards
+alsa-seq-server
+# Needed for sftp mounting
+sysutils/fusefs-sshfs
