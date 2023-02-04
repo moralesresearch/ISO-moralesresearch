@@ -99,15 +99,15 @@ else
 fi
 
 # For helloSystem, we are using a different naming scheme for the ISOS
-if [ "${desktop}" = "unix" ] ; then
-  if [ -f overlays/uzip/unix/manifest ] ; then
-    HELLO_VERSION=$(grep "^version:" overlays/uzip/unix/manifest | xargs | cut -d " " -f 2 | cut -d "_" -f 1)
+if [ "${desktop}" = "sunos" ] ; then
+  if [ -f overlays/uzip/sunos/manifest ] ; then
+    HELLO_VERSION=$(grep "^version:" overlays/uzip/sunos/manifest | xargs | cut -d " " -f 2 | cut -d "_" -f 1)
     # If we are building hello, then set version number of the 'hello' transient package
     # based on environment variable set e.g., by Cirrus CI
     if [ ! -z $BUILDNUMBER ] ; then
       echo "Injecting $BUILDNUMBER" into manifest
-      sed -i '' -e 's|\(^version:       .*_\).*$|\1'$BUILDNUMBER'|g' "${cwd}/overlays/uzip/unix/manifest"
-      cat "${cwd}/overlays/uzip/unix/manifest"
+      sed -i '' -e 's|\(^version:       .*_\).*$|\1'$BUILDNUMBER'|g' "${cwd}/overlays/uzip/sunos/manifest"
+      cat "${cwd}/overlays/uzip/sunos/manifest"
       isopath="${iso}/${desktop}-${HELLO_VERSION}_${BUILDNUMBER}-FreeBSD-${VER}-${arch}.iso"
     else
       isopath="${iso}/${desktop}-${HELLO_VERSION}_git${SHA}-FreeBSD-${VER}-${arch}.iso"

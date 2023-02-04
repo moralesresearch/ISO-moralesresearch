@@ -5,7 +5,7 @@ based on helloSystem (credit to them!)
 
 ## Release (Old)
 
-The latest release build 10.0 (Beta 5) "this is the old MR UNIX OS" can be downloaded [here](https://gitlab.com/morales-research-corporation/os-development/mr-unix/-/releases).
+The latest release build 10.0 (Beta 5) "this is the old MR UNIX operating system" can be downloaded [here](https://gitlab.com/morales-research-corporation/os-development/mr-unix/-/releases).
 
 # New Release (v6.1-pb)
 

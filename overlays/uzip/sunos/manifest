@@ -7,7 +7,7 @@
 # since for ports changes, and the ,2 means the versioning scheme has been changed twice
 # https://docs.freebsd.org/en/books/porters-handbook/book/#makefile-naming-revepoch
 cat << EOF
-name:          unix
+name:          sunos
 version:       6.1
 origin:        OpenBSD
 comment:       Package that installs MacOS and MRUnix core components

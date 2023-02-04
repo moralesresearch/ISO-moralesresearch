@@ -1,7 +1,7 @@
-NAME="Sun/OS UNIX"
+NAME="Morales Research Sun/OS UNIX"
 VERSION=6.1
 VERSION_ID=6.1-pb
-ID=freebsd
+ID=sun
 ANSI_COLOR="0;31"
 PRETTY_NAME="Sun/OS version 6.1 (Public Beta)"
 CPE_NAME=cpe:/o:freebsd:freebsd:13.0
