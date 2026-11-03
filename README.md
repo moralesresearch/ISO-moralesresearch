@@ -11,6 +11,16 @@ The latest release build 10.0 (Beta 5) "this is the old MR UNIX operating system
 
 The new release is now avaliable to download on [Github](https://github.com/moralesresearch/ISO/releases)
 
+## Building
+
+The ISO is built for the FreeBSD release of the machine it is built on, so build on a supported FreeBSD 14 release (14.4 or later):
+
+```
+sudo sh build.sh sunos
+```
+
+The ISO is written to `/usr/local/furybsd/iso/`. Before building, `sh scripts/check-tree.sh` checks the overlay and settings files for consistency; CI also checks the package lists against the FreeBSD package repository.
+
 ## System Requirements for live media
 
 * 2 GHz dual core processor

@@ -42,7 +42,7 @@
 
 
 import os, sys
-import distutils.spawn
+import shutil
 import getpass
 
 try:
@@ -105,7 +105,7 @@ class ArchiveMounter(object):
             pass
 
 if __name__ == "__main__":
-    if distutils.spawn.find_executable("fuse-archive") == False:
+    if shutil.which("fuse-archive") is None:
         print("fuse-archive not found, please install it and try again", file=sys.stderr)
         # TODO: Call some system service that can install packages
         sys.exit(1)

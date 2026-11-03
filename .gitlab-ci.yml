@@ -1,0 +1,47 @@
+stages:
+  - check
+  - build
+
+variables:
+  FREEBSD_MAJOR: "14"
+
+shellcheck:
+  stage: check
+  image: koalaman/shellcheck-alpine:v0.10.0
+  script:
+    # Errors only; the scripts are inherited from upstream and have many style warnings
+    - shellcheck -s sh -S error build.sh scripts/*.sh settings/script.*
+
+tree:
+  stage: check
+  image: alpine:3.20
+  script:
+    - sh scripts/check-tree.sh
+
+packages:
+  stage: check
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache curl python3 tar zstd
+  script:
+    - curl -fsSL -o packagesite.pkg "https://pkg.freebsd.org/FreeBSD:${FREEBSD_MAJOR}:amd64/quarterly/packagesite.pkg"
+    - zstd -dc packagesite.pkg | tar -xf - packagesite.yaml
+    - python3 scripts/check-packages.py packagesite.yaml "settings/packages.common-${FREEBSD_MAJOR}" settings/packages.sunos
+
+# Building the ISO needs a FreeBSD host with root access, which GitLab.com
+# does not provide; register a FreeBSD 14 runner tagged 'freebsd' to use this
+iso:
+  stage: build
+  tags:
+    - freebsd
+  when: manual
+  variables:
+    BUILDNUMBER: "${CI_PIPELINE_IID}"
+  script:
+    - sh build.sh sunos
+    # Artifacts must be inside the project directory
+    - mkdir -p iso && cp /usr/local/furybsd/iso/sunos-* iso/
+  artifacts:
+    paths:
+      - iso/
+    expire_in: 1 week
