@@ -82,7 +82,7 @@ rm -f QtPlugin_FreeBSD.zip
 rm -rf QtPlugin/
 wget -q https://raw.githubusercontent.com/helloSystem/QtPlugin/master/stylesheet.qss
 mkdir -p "${uzip}/usr/local/etc/xdg/"
-sudo mv stylesheet.qss "${uzip}/usr/local/etc/xdg/"
+mv stylesheet.qss "${uzip}/usr/local/etc/xdg/"
 
 # launch
 wget -q https://github.com/helloSystem/launch/releases/download/continuous/launch_FreeBSD.zip
@@ -313,6 +313,22 @@ install -m 0444 "${uzip}/tmp/apple-zsh/zshrc" "${uzip}/usr/local/etc/zshrc"
 install -m 0444 "${uzip}/tmp/apple-zsh/zprofile" "${uzip}/usr/local/etc/zprofile"
 grep -qx /usr/local/bin/zsh "${uzip}/etc/shells" || echo /usr/local/bin/zsh >> "${uzip}/etc/shells"
 rm -rf "${uzip}/tmp/apple-zsh"
+
+# AppleFileSystemDriver for FreeBSD, from Morales Research's AppleFileSystemDriver
+# repository: the geom_applefs kernel module gives Apple disks stable names by
+# the UUIDs macOS uses (/dev/hfsid, /dev/apfscid and /dev/apfsid), and applefsid
+# prints them. It is built on the build host, which runs the same release, against
+# that release's kernel sources
+AFSD_COMMIT="336532c6ed47873fdfffd4faa4595970f2dbdbdb"
+git clone -q https://gitlab.com/morales-research-corporation/os-development/AppleFileSystemDriver.git /tmp/afsd
+git -C /tmp/afsd checkout -q "${AFSD_COMMIT}"
+fetch -q -o /tmp/afsd-src.txz "https://download.freebsd.org/ftp/${FTPDIRECTORY}/${arch}/${version}/src.txz"
+mkdir -p /tmp/afsd-src
+tar -xf /tmp/afsd-src.txz -C /tmp/afsd-src usr/src/sys
+make -C /tmp/afsd/freebsd SYSDIR=/tmp/afsd-src/usr/src/sys
+install -m 0555 /tmp/afsd/freebsd/kmod/geom_applefs.ko "${uzip}/boot/modules/"
+install -m 0555 /tmp/afsd/freebsd/applefsid/applefsid "${uzip}/usr/local/sbin/"
+rm -rf /tmp/afsd /tmp/afsd-src /tmp/afsd-src.txz
 
 if [ "${EDITION}" = "server" ] ; then
   # Apple's mod_bw (OS X Server 3.0.2, apache_mod_bw-205), the bandwidth limiting

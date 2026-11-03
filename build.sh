@@ -53,6 +53,8 @@ livecd="${workdir}/furybsd"
 if [ -z "${arch}" ] ; then
   arch=amd64
 fi
+# settings/script.${desktop} downloads the matching sources for kernel modules
+export arch version FTPDIRECTORY
 cache="${livecd}/${arch}/cache"
 base="${cache}/${version}/base"
 export packages="${cache}/packages"
@@ -567,7 +569,7 @@ split()
   ISO_SIZE=$(stat -f%z "${isopath}")
   if [ $ISO_SIZE -gt $THRESHOLD_BYTES ] ; then
     echo "Size exceeds GitHub Releases file size limit; splitting the ISO"
-    sudo split -d -b "$THRESHOLD_BYTES" -a 1 "${isopath}" "${isopath}.part"
+    split -d -b "$THRESHOLD_BYTES" -a 1 "${isopath}" "${isopath}.part"
     echo "Split the ISO, deleting the original"
     rm "${isopath}"
     ls -l "${isopath}"*
