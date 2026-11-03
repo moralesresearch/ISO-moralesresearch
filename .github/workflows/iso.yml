@@ -12,6 +12,32 @@ permissions:
   contents: read
 
 jobs:
+  # The AppleFileSystemDriver commit that settings/script.sunos builds into the image
+  applefs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Test geom_applefs in a FreeBSD 14.5 VM
+        uses: vmactions/freebsd-vm@v1.5.9
+        with:
+          release: "14.5"
+          sync: rsync
+          copyback: false
+          prepare: |
+            env ASSUME_ALWAYS_YES=yes pkg install git-lite
+          run: |
+            set -e
+            commit=$(sed -n 's/^AFSD_COMMIT="\(.*\)"$/\1/p' settings/script.sunos)
+            fetch -q -o /tmp/src.txz "https://download.freebsd.org/ftp/releases/amd64/$(freebsd-version -k | cut -d- -f1-2)/src.txz"
+            tar -xf /tmp/src.txz -C / usr/src/sys
+            git clone -q https://gitlab.com/morales-research-corporation/os-development/AppleFileSystemDriver.git /tmp/afsd
+            git -C /tmp/afsd checkout -q "${commit}"
+            make -C /tmp/afsd/freebsd
+            sh /tmp/afsd/freebsd/tests/run.sh
+
   iso:
     strategy:
       fail-fast: false
