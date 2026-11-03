@@ -373,7 +373,13 @@ IGNORE_OSVERSION=yes /usr/local/sbin/pkg-static -c "${uzip}" add "https://github
 # Prevent the hello package from being upgraded with an unrelated package of the same name
 # and prevent the modifications made to the system in this script from being overwritten
 # by package updates done by the user at a later time; FIXME: Find a cleaner way
-chroot "${uzip}" pkg lock -y sunos automount slim dejavu liberation-fonts-ttf
+# Only lock the ones that are installed: liberation-fonts-ttf, for example, is not
+# pulled in on FreeBSD 14, and pkg lock fails for packages that are not installed
+for p in sunos automount slim dejavu liberation-fonts-ttf ; do
+  if chroot "${uzip}" pkg info -e "${p}" ; then
+    chroot "${uzip}" pkg lock -y "${p}"
+  fi
+done
 rm ${uzip}/etc/resolv.conf
 umount ${uzip}/var/cache/pkg
 umount ${uzip}/dev
