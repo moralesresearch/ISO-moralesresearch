@@ -304,9 +304,18 @@ chroot "${uzip}" python3 -m pip install --break-system-packages pyedid
 APPLE_ZSH_COMMIT="2971aa965223c875924bbb9db76b1f179a9ff349"
 git clone -q https://gitlab.com/morales-research-corporation/os-development/apple-zsh.git "${uzip}/tmp/apple-zsh"
 git -C "${uzip}/tmp/apple-zsh" checkout -q "${APPLE_ZSH_COMMIT}"
+# FreeBSD support for zsh 5.9, from FreeBSD's shells/zsh port
+for p in "${cwd}"/settings/patches/apple-zsh/patch-* ; do
+  patch -s -d "${uzip}/tmp/apple-zsh/zsh" -p0 < "${p}"
+done
 chroot "${uzip}" pkg delete -fy zsh
+# Apple's configure options, plus what shells/zsh sets for FreeBSD. CC=cc: configure
+# would otherwise pick gcc, if a package pulled it in, and fail on the ncurses headers
 chroot "${uzip}" sh -c 'cd /tmp/apple-zsh/zsh && \
-  CPPFLAGS=-DUSE_GETCWD ./configure --prefix=/usr/local --enable-etcdir=/usr/local/etc \
+  CC=cc CPPFLAGS="-DBOOL_DEFINED -DUSE_GETCWD" \
+  zsh_cv_sys_path_dev_fd=no ac_cv_header_sys_capability_h=no \
+  zsh_cv_path_utmpx=/var/run/utx.active \
+  ./configure --prefix=/usr/local --enable-etcdir=/usr/local/etc \
     --with-tcsetpgrp --enable-multibyte --enable-unicode9 --enable-max-function-depth=700 && \
   make && \
   make install.bin install.modules install.fns install.man'
