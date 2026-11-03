@@ -1,0 +1,8 @@
+# Installed in addition to settings/packages.sunos when building with EDITION=server
+# Server and code development applications
+git
+subversion
+vim
+vscode
+emacs
+evolution-data-server

@@ -92,6 +92,16 @@ if [ ! -f "${cwd}/settings/packages.common-${MAJOR}" ] ; then
   exit 1
 fi
 
+# Optional edition of the desktop, e.g. EDITION=server: installs settings/packages.${desktop}.${EDITION}
+# in addition to settings/packages.${desktop}, and settings/script.${desktop} can check it.
+# Not to be confused with ${edition} above, which is the desktop name in upper case
+if [ -n "${EDITION}" ] && [ ! -f "${cwd}/settings/packages.${desktop}.${EDITION}" ] ; then
+  echo "${cwd}/settings/packages.${desktop}.${EDITION} is missing; unknown edition '${EDITION}', exiting"
+  exit 1
+fi
+export EDITION
+isoname="${desktop}${EDITION:+-${EDITION}}" # "sunos" or "sunos-server"
+
 # Get the version tag
 if [ -z "$2" ] ; then
   rm /usr/local/furybsd/tag >/dev/null 2>/dev/null || true
@@ -107,11 +117,11 @@ SHA=$(echo ${CIRRUS_CHANGE_IN_REPO:-${CI_COMMIT_SHA}}| cut -c1-7)
 
 # The environment variable BUILDNUMBER may have been set; if so, use it
 if [ ! -z "${BUILDNUMBER}" ] ; then
-  isopath="${iso}/${desktop}-${BUILDNUMBER}-${vol}-${arch}.iso"
+  isopath="${iso}/${isoname}-${BUILDNUMBER}-${vol}-${arch}.iso"
 elif [ ! -z "${SHA}" ] ; then
-  isopath="${iso}/${desktop}-${SHA}-${vol}-${arch}.iso"
+  isopath="${iso}/${isoname}-${SHA}-${vol}-${arch}.iso"
 else
-  isopath="${iso}/${desktop}-${vol}-${arch}.iso"
+  isopath="${iso}/${isoname}-${vol}-${arch}.iso"
 fi
 
 # For helloSystem, we are using a different naming scheme for the ISOS
@@ -124,9 +134,9 @@ if [ "${desktop}" = "sunos" ] ; then
       echo "Injecting $BUILDNUMBER" into manifest
       sed -i '' -e 's|\(^version:       .*_\).*$|\1'$BUILDNUMBER'|g' "${cwd}/overlays/uzip/sunos/manifest"
       cat "${cwd}/overlays/uzip/sunos/manifest"
-      isopath="${iso}/${desktop}-${HELLO_VERSION}_${BUILDNUMBER}-FreeBSD-${VER}-${arch}.iso"
+      isopath="${iso}/${isoname}-${HELLO_VERSION}_${BUILDNUMBER}-FreeBSD-${VER}-${arch}.iso"
     else
-      isopath="${iso}/${desktop}-${HELLO_VERSION}_git${SHA}-FreeBSD-${VER}-${arch}.iso"
+      isopath="${iso}/${isoname}-${HELLO_VERSION}_git${SHA}-FreeBSD-${VER}-${arch}.iso"
     fi
   fi
 fi
@@ -211,7 +221,7 @@ packages()
   mount_nullfs ${packages} ${uzip}/var/cache/pkg
   mount -t devfs devfs ${uzip}/dev
   # FIXME: In the following line, the hardcoded "i386" needs to be replaced by "${arch}" - how?
-  for p in common-${MAJOR} ${desktop}; do
+  for p in common-${MAJOR} ${desktop} ${EDITION:+${desktop}.${EDITION}}; do
     sed '/^#/d;/\!i386/d;/^cirrus:/d;/^https:/d' "${cwd}/settings/packages.$p" | \
       xargs /usr/local/sbin/pkg-static -c "${uzip}" install -y
     pkg_cachedir=/var/cache/pkg

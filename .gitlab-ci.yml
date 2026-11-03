@@ -26,7 +26,7 @@ packages:
   script:
     - curl -fsSL -o packagesite.pkg "https://pkg.freebsd.org/FreeBSD:${FREEBSD_MAJOR}:amd64/quarterly/packagesite.pkg"
     - zstd -dc packagesite.pkg | tar -xf - packagesite.yaml
-    - python3 scripts/check-packages.py packagesite.yaml "settings/packages.common-${FREEBSD_MAJOR}" settings/packages.sunos
+    - python3 scripts/check-packages.py packagesite.yaml "settings/packages.common-${FREEBSD_MAJOR}" settings/packages.sunos settings/packages.sunos.server
 
 # Building the ISO needs a FreeBSD host with root access, which GitLab.com
 # does not provide; register a FreeBSD 14 runner tagged 'freebsd' to use this.
@@ -50,3 +50,9 @@ iso:
     paths:
       - iso/
     expire_in: 1 week
+
+# The server edition; its files are named sunos-server-*
+iso-server:
+  extends: iso
+  variables:
+    EDITION: server
