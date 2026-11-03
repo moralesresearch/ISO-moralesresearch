@@ -308,8 +308,9 @@ chroot "${uzip}" pkg delete -fy zsh
 chroot "${uzip}" sh -c 'cd /tmp/apple-zsh/zsh && \
   CPPFLAGS=-DUSE_GETCWD ./configure --prefix=/usr/local --enable-etcdir=/usr/local/etc \
     --with-tcsetpgrp --enable-multibyte --enable-unicode9 --enable-max-function-depth=700 && \
-  make -j "$(sysctl -n hw.ncpu)" && \
+  make && \
   make install.bin install.modules install.fns install.man'
+# (not make -j: zsh's makefiles are not parallel-safe, see MAKE_JOBS_UNSAFE in shells/zsh)
 rm -f "${uzip}/usr/local/bin/zsh-5.9"
 install -m 0444 "${uzip}/tmp/apple-zsh/zshrc" "${uzip}/usr/local/etc/zshrc"
 install -m 0444 "${uzip}/tmp/apple-zsh/zprofile" "${uzip}/usr/local/etc/zprofile"
