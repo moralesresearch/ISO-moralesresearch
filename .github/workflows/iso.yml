@@ -1,0 +1,80 @@
+# Build both editions of the ISO in a FreeBSD 14.5 VM and boot each one in QEMU.
+# GitHub-hosted runners provide KVM, which GitLab.com's hosted runners do not,
+# so this runs on the GitHub copy of the repository (moralesresearch/ISO-moralesresearch)
+name: ISO
+
+on:
+  push:
+    branches: ['sunos/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  iso:
+    strategy:
+      fail-fast: false
+      matrix:
+        edition: [desktop, server]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    env:
+      # build.sh: no EDITION builds the desktop edition
+      EDITION: ${{ matrix.edition == 'server' && 'server' || '' }}
+      BUILDNUMBER: ${{ github.run_number }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build the ISO in a FreeBSD 14.5 VM
+        uses: vmactions/freebsd-vm@v1.5.9
+        with:
+          release: "14.5"
+          mem: 12288
+          envs: 'EDITION BUILDNUMBER'
+          sync: rsync
+          prepare: |
+            env ASSUME_ALWAYS_YES=yes pkg install git wget zip
+          run: |
+            sh build.sh sunos
+            mkdir -p iso
+            cp /usr/local/furybsd/iso/sunos-* iso/
+            ls -l iso
+
+      - name: Boot the ISO in QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y qemu-system-x86 socat
+          sudo chmod 666 /dev/kvm
+          iso=$(ls iso/*.iso | head -n 1)
+          echo "Booting ${iso}"
+          mkdir -p boot
+          # Nested KVM on these runners can crash guests that use AVX-512
+          qemu-system-x86_64 -enable-kvm -cpu host,-avx512f,-avx512dq,-avx512cd,-avx512bw,-avx512vl \
+            -smp 2 -m 6144 -cdrom "${iso}" -boot d -vga std -display none \
+            -monitor unix:boot/monitor.sock,server,nowait -serial file:boot/serial.log &
+          elapsed=0
+          for t in 45 90 180 300 420 600; do
+            sleep $((t - elapsed)); elapsed=${t}
+            echo "screendump boot/screen-${t}s.png -f png" | socat - UNIX-CONNECT:boot/monitor.sock
+          done
+          echo quit | socat - UNIX-CONNECT:boot/monitor.sock || true
+          ls -l boot
+
+      - name: Upload boot screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sunos-${{ matrix.edition }}-boot
+          path: boot/
+          if-no-files-found: ignore
+
+      - name: Upload the ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: sunos-${{ matrix.edition }}-iso
+          path: iso/
+          retention-days: 7
+          compression-level: 0
