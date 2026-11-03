@@ -93,7 +93,8 @@ x11vnc
 # Required for Lector.app
 devel/py-xmltodict
 www/py-beautifulsoup4
-databases/py-sqlite3
+# The origin matches every Python flavor (py311 to py315); install only the default one
+py312-sqlite3
 # Required for Sticky Notes.app
 # devel/py-qt5-dbus was folded into devel/py-qt5-pyqt
 # For convenience in addition to the curl that comes with FreeBSD base
@@ -177,7 +178,7 @@ eject
 # linux-c7-nss
 # linux-c7-alsa-lib
 # linux-c7-cups-libs
-falkon
+falkon-qt6
 # Needed by gmenudbusmenuproxy which is required for the global menu
 kf5-kconfig
 # Needed by Dock

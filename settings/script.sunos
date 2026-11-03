@@ -103,6 +103,11 @@ rm -f dsbexec_FreeBSD.zip
 wget -q https://github.com/helloSystem/Menu/releases/download/2022-08-14/Menu_FreeBSD.zip
 unzip Menu_FreeBSD.zip
 rm -f Menu_FreeBSD.zip
+# That build is packaged as Menu.AppDir, but start-hello launches /System/Menu.app/Menu.
+# Like the AppDir's own AppRun, the entry point is a symlink to the binary, which finds
+# its plugins relative to its real location (usr/bin/../lib/menubar/plugins)
+mv Menu.AppDir Menu.app
+ln -s usr/bin/Menu Menu.app/Menu
 
 # TODO: Get self-hosted gmenudbusmenuproxy
 # because the one from pkg pulls in a lot of KDE Plasma
