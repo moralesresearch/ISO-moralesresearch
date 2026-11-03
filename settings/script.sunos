@@ -521,8 +521,12 @@ chroot ${uzip} pkg remove -y python37 || true
 chroot ${uzip} pkg remove -y python36 || true
 chroot ${uzip} pkg remove -y python27 || true
 
-# Point the CPE at the FreeBSD release the image is actually built from
-sed -i '' -e "s|^CPE_NAME=.*|CPE_NAME=cpe:/o:freebsd:freebsd:${VER}|" "${uzip}/etc/os-release"
+# Point the CPE at the FreeBSD release the image is actually built from.
+# In FreeBSD base, /etc/os-release is a symlink that sed -i cannot edit;
+# the sunos overlay replaces it with a regular file
+if [ -f "${uzip}/etc/os-release" ] && [ ! -L "${uzip}/etc/os-release" ] ; then
+  sed -i '' -e "s|^CPE_NAME=.*|CPE_NAME=cpe:/o:freebsd:freebsd:${VER}|" "${uzip}/etc/os-release"
+fi
 
 # Amend /etc/os-release by Sun/OS specific entries
 # https://www.freedesktop.org/software/systemd/man/os-release.html

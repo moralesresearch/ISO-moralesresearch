@@ -29,7 +29,9 @@ packages:
     - python3 scripts/check-packages.py packagesite.yaml "settings/packages.common-${FREEBSD_MAJOR}" settings/packages.sunos
 
 # Building the ISO needs a FreeBSD host with root access, which GitLab.com
-# does not provide; register a FreeBSD 14 runner tagged 'freebsd' to use this
+# does not provide; register a FreeBSD 14 runner tagged 'freebsd' to use this.
+# GitLab.com limits artifacts to 1 GB by default, so a larger ISO needs a higher
+# limit (self-managed GitLab) or uploading elsewhere, e.g. the package registry
 iso:
   stage: build
   tags:
@@ -37,6 +39,9 @@ iso:
   when: manual
   variables:
     BUILDNUMBER: "${CI_PIPELINE_IID}"
+  before_script:
+    # Don't pick up images left by earlier builds on a persistent runner
+    - rm -rf /usr/local/furybsd/iso
   script:
     - sh build.sh sunos
     # Artifacts must be inside the project directory

@@ -39,6 +39,16 @@ for script in settings/script.*; do
   done
 done
 
+# Overlay programs must be executable: pkg create takes file modes from the
+# checked-out files, so a program committed without +x cannot run in the image
+# (a heredoc rather than a pipe, so that fail() runs in this shell and counts)
+while read -r f; do
+  [ -z "${f}" ] && continue
+  [ -x "${f}" ] || fail "${f} is not executable"
+done <<EOF
+$(find overlays/uzip/*/files -type f \( -path '*/bin/*' -o -path '*/sbin/*' -o -path '*/libexec/*' \) ! -name .gitkeep)
+EOF
+
 if [ "${errors}" -gt 0 ] ; then
   echo "${errors} problem(s) found" 1>&2
   exit 1

@@ -28,7 +28,7 @@ fi
 #                  or https://download.freebsd.org/ftp/snapshots/
 VERSIONSUFFIX=$(uname -r | cut -d "-" -f 2) # "RELEASE" or "CURRENT"
 FTPDIRECTORY="releases" # "releases" or "snapshots"
-if [ "${VERSIONSUFFIX}" = "CURRENT" ] ; then
+if [ "${VERSIONSUFFIX}" = "CURRENT" ] || [ "${VERSIONSUFFIX}" = "STABLE" ] ; then
   FTPDIRECTORY="snapshots"
 fi
 # RCs are in the 'releases' ftp directory; hence check if $VERSIONSUFFIX begins with 'RC' https://serverfault.com/a/252406
@@ -321,7 +321,9 @@ initgfx()
     # 340 needed for Nvidia 320M
     for ver in '' 390 340 304; do
         # pkgfile=$(/usr/local/sbin/pkg-static -c ${uzip} rquery %n-%v.txz nvidia-driver${ver:+-$ver})
-        pkgfile=$(/usr/local/sbin/pkg-static -c ${uzip} rquery %n-%v.pkg nvidia-driver${ver:+-$ver})
+        # Query only the FreeBSD repository, whose URL the fetch below uses; 14.3 and later
+        # also configure a FreeBSD-kmods repository, which would add a second line
+        pkgfile=$(/usr/local/sbin/pkg-static -c ${uzip} rquery -r FreeBSD %n-%v.pkg nvidia-driver${ver:+-$ver})
         fetch -o "${cache}/" "https://pkg.freebsd.org/FreeBSD:${MAJOR}:amd64/${PKGS}/All/${pkgfile}"
         mkdir -p "${uzip}/usr/local/nvidia/${ver:-latest}/"
         tar xfC "${cache}"/${pkgfile} "${uzip}/usr/local/nvidia/${ver:-latest}/"
