@@ -37,6 +37,8 @@ iso:
   tags:
     - freebsd
   when: manual
+  # Builds share /usr/local/furybsd, so only one may run at a time (also covers iso-server)
+  resource_group: freebsd-iso
   variables:
     BUILDNUMBER: "${CI_PIPELINE_IID}"
   before_script:

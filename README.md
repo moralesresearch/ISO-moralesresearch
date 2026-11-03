@@ -25,7 +25,7 @@ To build the server edition, which adds the packages in `settings/packages.sunos
 sudo EDITION=server sh build.sh sunos
 ```
 
-(`EDITION` must come after `sudo`, which does not pass on environment variables set before it.)
+(`EDITION` must come after `sudo`, which does not pass on environment variables set before it. This needs a sudoers rule that allows setting variables, such as `ALL`; as root, run `EDITION=server sh build.sh sunos` instead.)
 
 The ISO is written to `/usr/local/furybsd/iso/`. Before building, `sh scripts/check-tree.sh` checks the overlay and settings files for consistency; CI also checks the package lists against the FreeBSD package repository.
 
