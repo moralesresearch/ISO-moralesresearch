@@ -7,3 +7,22 @@ vim
 vscode
 emacs
 evolution-data-server
+# Services from OS X Server 3.0.2 (os-x-server-src), as current FreeBSD packages.
+# All are installed but not enabled; enable them in /etc/rc.conf.
+# Apple's mod_bw has no package and is built by settings/script.sunos
+# HTTPServer: Apache web server
+apache24
+# PostgreSQL (Apple shipped 9.2)
+postgresql18-server
+# Mail: dovecot with Sieve (pigeonhole), and the spam and virus filters
+dovecot
+dovecot-pigeonhole
+spamassassin
+amavisd-new
+clamav
+# freeradius
+freeradius3
+# ChatServer (Apple's jabberd2): Prosody XMPP server until ChatServer is ported
+prosody
+# apache_mod_bonjour: Bonjour (DNS-SD) advertising for Apache
+ap24-mod_dnssd
