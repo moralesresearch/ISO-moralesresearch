@@ -290,7 +290,9 @@ mount_nullfs ${packages} ${uzip}/var/cache/pkg
 mount -t devfs devfs ${uzip}/dev
 
 # Needed for translations in the helloSystem/Utilities repository
-chroot "${uzip}" python3 -m pip install --break-system-packages translate-toolkit
+# translate-toolkit 3.14.8 is the newest release whose dependencies (cwcwidth, lxml) are all
+# FreeBSD packages; later ones need a Rust extension, or a package that is no longer on PyPI
+chroot "${uzip}" python3 -m pip install --break-system-packages translate-toolkit==3.14.8
 
 # Needed for Display.app
 chroot "${uzip}" python3 -m pip install --break-system-packages pyedid
