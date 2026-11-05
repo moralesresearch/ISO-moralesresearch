@@ -85,6 +85,13 @@ jobs:
           for t in 45 90 180 300 420 600; do
             sleep $((t - elapsed)); elapsed=${t}
             echo "screendump boot/screen-${t}s.png -f png" | socat - UNIX-CONNECT:boot/monitor.sock
+            # Past the language chooser, which appears because nothing has set a language
+            if [ "${t}" = 180 ]; then
+              for key in down ret; do
+                echo "sendkey ${key}" | socat - UNIX-CONNECT:boot/monitor.sock
+                sleep 1
+              done
+            fi
           done
           echo quit | socat - UNIX-CONNECT:boot/monitor.sock || true
           ls -l boot

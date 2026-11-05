@@ -311,10 +311,13 @@ done
 chroot "${uzip}" pkg delete -fy zsh
 # Apple's configure options, plus what shells/zsh sets for FreeBSD. CC=cc: configure
 # would otherwise pick gcc, if a package pulled it in, and fail on the ncurses headers
+# zsh_cv_sys_dynamic_execsyms, EXTRA_LDFLAGS: configure's tests for these fail with
+# current compilers, and zsh is then split into a launcher and a libzsh it cannot find
 chroot "${uzip}" sh -c 'cd /tmp/apple-zsh/zsh && \
   CC=cc CPPFLAGS="-DBOOL_DEFINED -DUSE_GETCWD" \
   zsh_cv_sys_path_dev_fd=no ac_cv_header_sys_capability_h=no \
   zsh_cv_path_utmpx=/var/run/utx.active \
+  zsh_cv_sys_dynamic_execsyms=yes EXTRA_LDFLAGS=-rdynamic \
   ./configure --prefix=/usr/local --enable-etcdir=/usr/local/etc \
     --with-tcsetpgrp --enable-multibyte --enable-unicode9 --enable-max-function-depth=700 && \
   make && \
@@ -325,6 +328,8 @@ install -m 0444 "${uzip}/tmp/apple-zsh/zshrc" "${uzip}/usr/local/etc/zshrc"
 install -m 0444 "${uzip}/tmp/apple-zsh/zprofile" "${uzip}/usr/local/etc/zprofile"
 grep -qx /usr/local/bin/zsh "${uzip}/etc/shells" || echo /usr/local/bin/zsh >> "${uzip}/etc/shells"
 rm -rf "${uzip}/tmp/apple-zsh"
+# liveuser's login shell: a zsh that does not run means no desktop session
+chroot "${uzip}" /usr/local/bin/zsh -l -c 'zmodload zsh/datetime && print "zsh ${ZSH_VERSION} works"'
 
 # AppleFileSystemDriver for FreeBSD, from Morales Research's AppleFileSystemDriver
 # repository: the geom_applefs kernel module gives Apple disks stable names by
@@ -357,6 +362,8 @@ if [ "${EDITION}" = "server" ] ; then
   mkdir -p "${uzip}/usr/local/share/doc/mod_bw"
   install -m 0444 "${uzip}/tmp/apache_mod_bw/mod_bw/LICENSE" "${uzip}/usr/local/share/doc/mod_bw/LICENSE"
   rm -rf "${uzip}/tmp/apache_mod_bw"
+  # Apache must start with the module
+  chroot "${uzip}" /usr/local/sbin/httpd -t -D DUMP_MODULES | grep bw_module
 fi
 
 # Needed for FUSE mounting by users
