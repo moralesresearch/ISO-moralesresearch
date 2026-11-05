@@ -17,7 +17,7 @@ fail()
 # build.sh reads the overlay lists with 'while read', which silently
 # skips a last line that has no trailing newline
 for f in settings/*; do
-  if [ -s "${f}" ] && [ -n "$(tail -c 1 "${f}")" ] ; then
+  if [ -f "${f}" ] && [ -s "${f}" ] && [ -n "$(tail -c 1 "${f}")" ] ; then
     fail "${f} does not end with a newline"
   fi
 done

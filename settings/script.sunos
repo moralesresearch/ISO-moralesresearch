@@ -82,7 +82,7 @@ rm -f QtPlugin_FreeBSD.zip
 rm -rf QtPlugin/
 wget -q https://raw.githubusercontent.com/helloSystem/QtPlugin/master/stylesheet.qss
 mkdir -p "${uzip}/usr/local/etc/xdg/"
-sudo mv stylesheet.qss "${uzip}/usr/local/etc/xdg/"
+mv stylesheet.qss "${uzip}/usr/local/etc/xdg/"
 
 # launch
 wget -q https://github.com/helloSystem/launch/releases/download/continuous/launch_FreeBSD.zip
@@ -290,10 +290,81 @@ mount_nullfs ${packages} ${uzip}/var/cache/pkg
 mount -t devfs devfs ${uzip}/dev
 
 # Needed for translations in the helloSystem/Utilities repository
-chroot "${uzip}" python3 -m pip install --break-system-packages translate-toolkit
+# translate-toolkit 3.14.8 is the newest release whose dependencies (cwcwidth, lxml) are all
+# FreeBSD packages; later ones need a Rust extension, or a package that is no longer on PyPI
+chroot "${uzip}" python3 -m pip install --break-system-packages translate-toolkit==3.14.8
 
 # Needed for Display.app
 chroot "${uzip}" python3 -m pip install --break-system-packages pyedid
+
+# Apple's zsh instead of the zsh package: the same version (5.9) and location
+# (/usr/local/bin/zsh), built with Apple's configure options and with Apple's
+# zshrc and zprofile as the system-wide startup files.
+# This runs while /dev is mounted in the image, which configure needs
+APPLE_ZSH_COMMIT="2971aa965223c875924bbb9db76b1f179a9ff349"
+git clone -q https://gitlab.com/morales-research-corporation/os-development/apple-zsh.git "${uzip}/tmp/apple-zsh"
+git -C "${uzip}/tmp/apple-zsh" checkout -q "${APPLE_ZSH_COMMIT}"
+# FreeBSD support for zsh 5.9, from FreeBSD's shells/zsh port
+for p in "${cwd}"/settings/patches/apple-zsh/patch-* ; do
+  patch -s -d "${uzip}/tmp/apple-zsh/zsh" -p0 < "${p}"
+done
+chroot "${uzip}" pkg delete -fy zsh
+# Apple's configure options, plus what shells/zsh sets for FreeBSD. CC=cc: configure
+# would otherwise pick gcc, if a package pulled it in, and fail on the ncurses headers
+# zsh_cv_sys_dynamic_execsyms, EXTRA_LDFLAGS: configure's tests for these fail with
+# current compilers, and zsh is then split into a launcher and a libzsh it cannot find
+chroot "${uzip}" sh -c 'cd /tmp/apple-zsh/zsh && \
+  CC=cc CPPFLAGS="-DBOOL_DEFINED -DUSE_GETCWD" \
+  zsh_cv_sys_path_dev_fd=no ac_cv_header_sys_capability_h=no \
+  zsh_cv_path_utmpx=/var/run/utx.active \
+  zsh_cv_sys_dynamic_execsyms=yes EXTRA_LDFLAGS=-rdynamic \
+  ./configure --prefix=/usr/local --enable-etcdir=/usr/local/etc \
+    --with-tcsetpgrp --enable-multibyte --enable-unicode9 --enable-max-function-depth=700 && \
+  make && \
+  make install.bin install.modules install.fns install.man'
+# (not make -j: zsh's makefiles are not parallel-safe, see MAKE_JOBS_UNSAFE in shells/zsh)
+rm -f "${uzip}/usr/local/bin/zsh-5.9"
+install -m 0444 "${uzip}/tmp/apple-zsh/zshrc" "${uzip}/usr/local/etc/zshrc"
+install -m 0444 "${uzip}/tmp/apple-zsh/zprofile" "${uzip}/usr/local/etc/zprofile"
+grep -qx /usr/local/bin/zsh "${uzip}/etc/shells" || echo /usr/local/bin/zsh >> "${uzip}/etc/shells"
+rm -rf "${uzip}/tmp/apple-zsh"
+# liveuser's login shell: a zsh that does not run means no desktop session
+chroot "${uzip}" /usr/local/bin/zsh -l -c 'zmodload zsh/datetime && print "zsh ${ZSH_VERSION} works"'
+
+# AppleFileSystemDriver for FreeBSD, from Morales Research's AppleFileSystemDriver
+# repository: the geom_applefs kernel module gives Apple disks stable names by
+# the UUIDs macOS uses (/dev/hfsid, /dev/apfscid and /dev/apfsid), and applefsid
+# prints them. It is built on the build host, which runs the same release, against
+# that release's kernel sources
+AFSD_COMMIT="336532c6ed47873fdfffd4faa4595970f2dbdbdb"
+git clone -q https://gitlab.com/morales-research-corporation/os-development/AppleFileSystemDriver.git /tmp/afsd
+git -C /tmp/afsd checkout -q "${AFSD_COMMIT}"
+fetch -q -o /tmp/afsd-src.txz "https://download.freebsd.org/ftp/${FTPDIRECTORY}/${arch}/${version}/src.txz"
+mkdir -p /tmp/afsd-src
+tar -xf /tmp/afsd-src.txz -C /tmp/afsd-src usr/src/sys
+make -C /tmp/afsd/freebsd SYSDIR=/tmp/afsd-src/usr/src/sys
+install -m 0555 /tmp/afsd/freebsd/kmod/geom_applefs.ko "${uzip}/boot/modules/"
+install -m 0555 /tmp/afsd/freebsd/applefsid/applefsid "${uzip}/usr/local/sbin/"
+rm -rf /tmp/afsd /tmp/afsd-src /tmp/afsd-src.txz
+
+if [ "${EDITION}" = "server" ] ; then
+  # Apple's mod_bw (OS X Server 3.0.2, apache_mod_bw-205), the bandwidth limiting
+  # module that FreeBSD has no package for, built for Apache 2.4
+  APPLE_MOD_BW_COMMIT="edf51cbc9d3ea3a596c3e5aef1a65b8c2d85cd46"
+  git clone -q https://github.com/apple-oss-distributions/apache_mod_bw.git "${uzip}/tmp/apache_mod_bw"
+  git -C "${uzip}/tmp/apache_mod_bw" checkout -q "${APPLE_MOD_BW_COMMIT}"
+  tar -xzf "${uzip}/tmp/apache_mod_bw/mod_bw-0.8.tgz" -C "${uzip}/tmp/apache_mod_bw"
+  # Apache 2.4 replaced conn_rec's remote_addr; useragent_addr is the client's address
+  sed -i '' -e 's|r->connection->remote_addr|r->useragent_addr|g' "${uzip}/tmp/apache_mod_bw/mod_bw/mod_bw.c"
+  chroot "${uzip}" sh -c 'cd /tmp/apache_mod_bw/mod_bw && \
+    /usr/local/sbin/apxs -c mod_bw.c && /usr/local/sbin/apxs -i -n bw mod_bw.la'
+  echo "LoadModule bw_module libexec/apache24/mod_bw.so" > "${uzip}/usr/local/etc/apache24/modules.d/250_mod_bw.conf"
+  mkdir -p "${uzip}/usr/local/share/doc/mod_bw"
+  install -m 0444 "${uzip}/tmp/apache_mod_bw/mod_bw/LICENSE" "${uzip}/usr/local/share/doc/mod_bw/LICENSE"
+  rm -rf "${uzip}/tmp/apache_mod_bw"
+  # Apache must start with the module
+  chroot "${uzip}" /usr/local/sbin/httpd -t -D DUMP_MODULES | grep bw_module
+fi
 
 # Needed for FUSE mounting by users
 chmod 1777 ${uzip}/media
@@ -319,7 +390,13 @@ IGNORE_OSVERSION=yes /usr/local/sbin/pkg-static -c "${uzip}" add "https://github
 # Prevent the hello package from being upgraded with an unrelated package of the same name
 # and prevent the modifications made to the system in this script from being overwritten
 # by package updates done by the user at a later time; FIXME: Find a cleaner way
-chroot "${uzip}" pkg lock -y sunos automount slim dejavu liberation-fonts-ttf
+# Only lock the ones that are installed: liberation-fonts-ttf, for example, is not
+# pulled in on FreeBSD 14, and pkg lock fails for packages that are not installed
+for p in sunos automount slim dejavu liberation-fonts-ttf ; do
+  if chroot "${uzip}" pkg info -e "${p}" ; then
+    chroot "${uzip}" pkg lock -y "${p}"
+  fi
+done
 rm ${uzip}/etc/resolv.conf
 umount ${uzip}/var/cache/pkg
 umount ${uzip}/dev
