@@ -56,7 +56,7 @@ fi
 # settings/script.${desktop} downloads the matching sources for kernel modules
 export arch version FTPDIRECTORY
 cache="${livecd}/${arch}/cache"
-base="${cache}/${version}/base"
+export base="${cache}/${version}/base"
 export packages="${cache}/packages"
 iso="${livecd}/iso"
 export uzip="${livecd}/uzip"
@@ -569,7 +569,8 @@ split()
   ISO_SIZE=$(stat -f%z "${isopath}")
   if [ $ISO_SIZE -gt $THRESHOLD_BYTES ] ; then
     echo "Size exceeds GitHub Releases file size limit; splitting the ISO"
-    split -d -b "$THRESHOLD_BYTES" -a 1 "${isopath}" "${isopath}.part"
+    # 'command': a bare split would call this function
+    command split -d -b "$THRESHOLD_BYTES" -a 1 "${isopath}" "${isopath}.part"
     echo "Split the ISO, deleting the original"
     rm "${isopath}"
     ls -l "${isopath}"*
