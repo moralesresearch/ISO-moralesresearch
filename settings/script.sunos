@@ -372,7 +372,7 @@ if [ "${EDITION}" = "server" ] ; then
   # Directory. make install creates the jabber user (93) and installs the
   # chatserver rc.d script; the service stays off until chatserver_enable=YES.
   # This runs while /dev is mounted in the image, which configure needs
-  CHATSERVER_COMMIT="bc0f55b7df8074524e59e2a70c9dac8f2bcf6ace"
+  CHATSERVER_COMMIT="60f7f9beec638db319ef5376108487215b0da77c"
   git clone -q https://gitlab.com/morales-research-corporation/os-development/ChatServer.git "${uzip}/tmp/chatserver"
   git -C "${uzip}/tmp/chatserver" checkout -q "${CHATSERVER_COMMIT}"
   chroot "${uzip}" sh -c 'cd /tmp/chatserver && make && make install'
