@@ -22,7 +22,19 @@ amavisd-new
 clamav
 # freeradius
 freeradius3
-# ChatServer (Apple's jabberd2): Prosody XMPP server until ChatServer is ported
-prosody
+# ChatServer (Apple's jabberd2) is built by settings/script.sunos from Morales
+# Research's ChatServer repository. What it links against:
+expat
+libidn
+udns
+gsasl
+sqlite3
+openldap26-client
+# and what it is built with
+autoconf
+automake
+libtool
+pkgconf
+gmake
 # apache_mod_bonjour: Bonjour (DNS-SD) advertising for Apache
 ap24-mod_dnssd

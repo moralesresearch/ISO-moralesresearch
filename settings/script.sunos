@@ -364,6 +364,29 @@ if [ "${EDITION}" = "server" ] ; then
   rm -rf "${uzip}/tmp/apache_mod_bw"
   # Apache must start with the module
   chroot "${uzip}" /usr/local/sbin/httpd -t -D DUMP_MODULES | grep bw_module
+
+  # ChatServer, the XMPP server of OS X Server 3.0.2 (ChatServer-409), from
+  # Morales Research's ChatServer repository, in place of the prosody package:
+  # jabberd2 2.7.0 with Apple's auto-buddy feature (mod_autobuddy and
+  # jabber_autobuddy, using system groups), and PAM sign-in in place of Open
+  # Directory. make install creates the jabber user (93) and installs the
+  # chatserver rc.d script; the service stays off until chatserver_enable=YES.
+  # This runs while /dev is mounted in the image, which configure needs
+  CHATSERVER_COMMIT="bc0f55b7df8074524e59e2a70c9dac8f2bcf6ace"
+  git clone -q https://gitlab.com/morales-research-corporation/os-development/ChatServer.git "${uzip}/tmp/chatserver"
+  git -C "${uzip}/tmp/chatserver" checkout -q "${CHATSERVER_COMMIT}"
+  chroot "${uzip}" sh -c 'cd /tmp/chatserver && make && make install'
+  rm -rf "${uzip}/tmp/chatserver"
+  # The components must load their libraries, and the service must be off
+  for c in router sm s2s c2s ; do
+    if chroot "${uzip}" ldd "/usr/local/libexec/jabberd/${c}" | grep 'not found' ; then
+      echo "ChatServer: ${c} is missing libraries" ; exit 1
+    fi
+  done
+  chroot "${uzip}" /usr/local/sbin/jabber_autobuddy --version
+  if chroot "${uzip}" service chatserver enabled ; then
+    echo "ChatServer must not be enabled by default" ; exit 1
+  fi
 fi
 
 # Needed for FUSE mounting by users
