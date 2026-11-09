@@ -218,7 +218,8 @@ zip
 firefox
 # Code development / tools
 gcc
-vscode
+# optional: FreeBSD's package builders sometimes skip vscode for a while
+optional:vscode
 # Needed for xapp-thumbnailers
 devel/py-pyelftools
 squashfs-tools
