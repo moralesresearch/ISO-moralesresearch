@@ -130,22 +130,27 @@ mv * "${uzip}/System/"
 mkdir -p "${uzip}/Applications/"
 mkdir -p "${uzip}/System/"
 
-wget -q https://github.com/moralesresearch/Utilities/archive/master.zip
-unzip master.zip
-mv "Utilities-master/Root/"* "${uzip}"/
-mv 'Utilities-master/Internet' "${uzip}/Applications/"
-mv 'Utilities-master/3D Printing' "${uzip}/Applications/"
-mv 'Utilities-master/Audio' "${uzip}/Applications/"
-mv 'Utilities-master/Developer' "${uzip}/Applications/"
-mv 'Utilities-master/Under Construction' "${uzip}/Applications/"
-mv 'Utilities-master/Graphics' "${uzip}/Applications/"
-mv 'Utilities-master/Office' "${uzip}/Applications/"
-mv 'Utilities-master/Preferences' "${uzip}/Applications/"
-mv 'Utilities-master/System'/* "${uzip}/System/"
-mv 'Utilities-master/Utilities' "${uzip}/Applications/"
-mv 'Utilities-master/Video' "${uzip}/Applications/"
+# The server edition uses the server-master branch
+UTILITIES_BRANCH="master"
+if [ "${EDITION}" = "server" ] ; then
+  UTILITIES_BRANCH="server-master"
+fi
+wget -q "https://github.com/moralesresearch/Utilities/archive/${UTILITIES_BRANCH}.zip"
+unzip "${UTILITIES_BRANCH}.zip"
+mv "Utilities-${UTILITIES_BRANCH}/Root/"* "${uzip}"/
+mv "Utilities-${UTILITIES_BRANCH}/Internet" "${uzip}/Applications/"
+mv "Utilities-${UTILITIES_BRANCH}/3D Printing" "${uzip}/Applications/"
+mv "Utilities-${UTILITIES_BRANCH}/Audio" "${uzip}/Applications/"
+mv "Utilities-${UTILITIES_BRANCH}/Developer" "${uzip}/Applications/"
+mv "Utilities-${UTILITIES_BRANCH}/Under Construction" "${uzip}/Applications/"
+mv "Utilities-${UTILITIES_BRANCH}/Graphics" "${uzip}/Applications/"
+mv "Utilities-${UTILITIES_BRANCH}/Office" "${uzip}/Applications/"
+mv "Utilities-${UTILITIES_BRANCH}/Preferences" "${uzip}/Applications/"
+mv "Utilities-${UTILITIES_BRANCH}/System"/* "${uzip}/System/"
+mv "Utilities-${UTILITIES_BRANCH}/Utilities" "${uzip}/Applications/"
+mv "Utilities-${UTILITIES_BRANCH}/Video" "${uzip}/Applications/"
 ( cd "${uzip}/System/Welcome.app/Resources/" && wget -q "https://github.com/helloSystem/Utilities/releases/download/assets/pamgaea-by-kevin-macleod-from-filmmusic-io.ogg" )
-rm -rf Utilities-master.zip Utilities-master/
+rm -rf "${UTILITIES_BRANCH}.zip" "Utilities-${UTILITIES_BRANCH}/"
 
 # Tasmota Device Manager
 wget -q https://github.com/helloSystem/ISO/releases/download/assets/Tasmota.Device.Manager.app.zip
@@ -531,18 +536,30 @@ chroot ${uzip} pkg remove -y python27 || true
 # the sunos overlay replaces it with a regular file
 if [ -f "${uzip}/etc/os-release" ] && [ ! -L "${uzip}/etc/os-release" ] ; then
   sed -i '' -e "s|^CPE_NAME=.*|CPE_NAME=cpe:/o:freebsd:freebsd:${VER}|" "${uzip}/etc/os-release"
-fi
 
-# Amend /etc/os-release by Sun/OS specific entries
-# https://www.freedesktop.org/software/systemd/man/os-release.html
-SHA=$(echo "${CIRRUS_CHANGE_IN_REPO:-${CI_COMMIT_SHA}}" | cut -c1-7)
-if [ -n "${SHA}" ] ; then
+  # Amend /etc/os-release by Sun/OS specific entries
+  # https://www.freedesktop.org/software/systemd/man/os-release.html
+  if [ "${EDITION}" = "server" ] ; then
+    sed -i '' -e 's|^NAME=.*|NAME="Morales Research Sun/OS UNIX Server"|' \
+      -e 's|^PRETTY_NAME="Sun/OS |PRETTY_NAME="Sun/OS Server |' "${uzip}/etc/os-release"
+    VARIANT="Server"
+    VARIANT_ID="server"
+  else
+    VARIANT="UNIX"
+    VARIANT_ID="sunos"
+  fi
   cat >> "${uzip}/etc/os-release" <<EOF
-VARIANT="UNIX"
-VARIANT_ID="sunos"
+VARIANT="${VARIANT}"
+VARIANT_ID="${VARIANT_ID}"
+EOF
+
+  SHA=$(echo "${CIRRUS_CHANGE_IN_REPO:-${CI_COMMIT_SHA}}" | cut -c1-7)
+  if [ -n "${SHA}" ] ; then
+    cat >> "${uzip}/etc/os-release" <<EOF
 IMAGE_ID="iso"
 IMAGE_VERSION="${BUILDNUMBER}_${SHA}"
 EOF
+  fi
 fi
 
 # Make sure members of group wheel can manipulate /Applications

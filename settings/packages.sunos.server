@@ -1,0 +1,9 @@
+# Installed in addition to settings/packages.sunos when building with EDITION=server
+# Server and code development applications
+# git: not listed; git-lite (settings/packages.common-*) already provides it,
+# and the two packages conflict with each other
+subversion
+vim
+vscode
+emacs
+evolution-data-server
