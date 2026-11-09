@@ -90,6 +90,9 @@ devel/py-pytz
 # Required for Sharing.app
 x11vnc
 # net/py-qt5-network was folded into devel/py-qt5-pyqt
+# Dependencies of translate-toolkit, which settings/script.sunos installs with pip
+devel/py-cwcwidth
+devel/py-lxml
 # Required for Lector.app
 devel/py-xmltodict
 www/py-beautifulsoup4

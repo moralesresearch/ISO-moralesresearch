@@ -53,8 +53,10 @@ livecd="${workdir}/furybsd"
 if [ -z "${arch}" ] ; then
   arch=amd64
 fi
+# settings/script.${desktop} downloads the matching sources for kernel modules
+export arch version FTPDIRECTORY
 cache="${livecd}/${arch}/cache"
-base="${cache}/${version}/base"
+export base="${cache}/${version}/base"
 export packages="${cache}/packages"
 iso="${livecd}/iso"
 export uzip="${livecd}/uzip"
@@ -234,7 +236,8 @@ packages()
     mkdir -p ${uzip}${pkg_cachedir}/furybsd-https
     for url in $(grep -e '^https' "${cwd}/settings/packages.$p"); do
       # First, try installing this using the real major version, then try to install package built for major version 12
-      pkg_add_from_url "$url" furybsd-https || pkg_add_from_url "$url" furybsd-https "freebsd:12:$arch"
+      # (pkg 2 only accepts the ABI spelled "FreeBSD:<major>:<arch>")
+      pkg_add_from_url "$url" furybsd-https || pkg_add_from_url "$url" furybsd-https "FreeBSD:12:$arch"
     done
   done
   # Install the packages we have generated in pkg() that are listed in transient-packages-list
@@ -566,7 +569,8 @@ split()
   ISO_SIZE=$(stat -f%z "${isopath}")
   if [ $ISO_SIZE -gt $THRESHOLD_BYTES ] ; then
     echo "Size exceeds GitHub Releases file size limit; splitting the ISO"
-    sudo split -d -b "$THRESHOLD_BYTES" -a 1 "${isopath}" "${isopath}.part"
+    # 'command': a bare split would call this function
+    command split -d -b "$THRESHOLD_BYTES" -a 1 "${isopath}" "${isopath}.part"
     echo "Split the ISO, deleting the original"
     rm "${isopath}"
     ls -l "${isopath}"*
