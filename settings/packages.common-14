@@ -10,7 +10,6 @@ xf86-input-libinput
 xf86-input-mouse
 xf86-input-vmmouse
 xf86-video-ati
-xf86-video-cirrus
 xf86-video-intel
 xf86-video-scfb
 xf86-video-vesa
@@ -20,7 +19,7 @@ xf86-video-qxl # !i386
 gpu-firmware-kmod
 # cirrus:github/helloSystem/drm-510-kmod.pkg/main/binaries/drm-510-kmod-5.10.113_1.pkg
 # https://api.cirrus-ci.com/v1/artifact/task/5107344295067648/binary/pkg/drm-510-kmod-5.10.113_1.pkg # Error 500
-drm-510-kmod
+drm-515-kmod
 # drm-legacy-kmod # Does not exist in 13. FIXME: What happens to the devices that need it?
 libva-intel-driver
 nvidia-driver # !i386 # Is now handled in build.sh initgfx()

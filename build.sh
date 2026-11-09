@@ -12,24 +12,36 @@ export IGNORE_OSVERSION=yes
 version=$(uname -r | cut -d "-" -f 1-2) # "12.2-RELEASE" or "13.0-CURRENT"
 echo "Host system version: ${version}"
 
-if [ "${version}" = "13.0-RELEASE" ] ; then
-  # version="13.0-RC3"
-  version="13.1-RELEASE"
-fi
+VER=$(echo "${version}" | cut -d "-" -f 1) # "14.3" or "15.0"
+MAJOR=$(echo "${version}" | cut -d "." -f 1) # "14" or "15"
+# Needed by settings/script.${desktop}, which runs as a separate process
+export VER MAJOR
 
-VER=$(echo "${version}" | cut -d "-" -f 1) # "12.2" or "13.0"
-MAJOR=$(echo "${version}" | cut -d "." -f 1) # "12" or "13"
+# FreeBSD 12 and 13 are end-of-life; their release files and package
+# repositories have been removed from the FreeBSD mirrors
+if [ "${MAJOR}" -lt 14 ] ; then
+  echo "FreeBSD ${version} is end-of-life and can no longer be used to build; please build on FreeBSD 14" 1>&2
+  exit 1
+fi
 
 # Download from either https://download.freebsd.org/ftp/releases/
 #                  or https://download.freebsd.org/ftp/snapshots/
 VERSIONSUFFIX=$(uname -r | cut -d "-" -f 2) # "RELEASE" or "CURRENT"
 FTPDIRECTORY="releases" # "releases" or "snapshots"
-if [ "${VERSIONSUFFIX}" = "CURRENT" ] ; then
+if [ "${VERSIONSUFFIX}" = "CURRENT" ] || [ "${VERSIONSUFFIX}" = "STABLE" ] ; then
   FTPDIRECTORY="snapshots"
 fi
 # RCs are in the 'releases' ftp directory; hence check if $VERSIONSUFFIX begins with 'RC' https://serverfault.com/a/252406
 if [ "${VERSIONSUFFIX#RC}"x != "${VERSIONSUFFIX}x" ]  ; then
   FTPDIRECTORY="releases"
+fi
+
+# Package branch, used both for the packages installed into the image
+# and for the Nvidia drivers in initgfx(). Releases use quarterly packages;
+# -CURRENT and -STABLE only have latest
+PKGS="quarterly"
+if [ "${VERSIONSUFFIX}" = "CURRENT" ] || [ "${VERSIONSUFFIX}" = "STABLE" ] ; then
+  PKGS="latest"
 fi
 
 # pkgset="branches/2020Q1" # TODO: Use it
@@ -75,6 +87,10 @@ if [ ! -f "${cwd}/settings/packages.${desktop}" ] ; then
   echo "${cwd}/settings/packages.${desktop} is missing, exiting"
   exit 1
 fi
+if [ ! -f "${cwd}/settings/packages.common-${MAJOR}" ] ; then
+  echo "${cwd}/settings/packages.common-${MAJOR} is missing; FreeBSD ${MAJOR} is not supported yet, exiting"
+  exit 1
+fi
 
 # Get the version tag
 if [ -z "$2" ] ; then
@@ -87,7 +103,7 @@ else
 fi
 
 # Get the short git SHA
-SHA=$(echo ${CIRRUS_CHANGE_IN_REPO}| cut -c1-7)
+SHA=$(echo ${CIRRUS_CHANGE_IN_REPO:-${CI_COMMIT_SHA}}| cut -c1-7)
 
 # The environment variable BUILDNUMBER may have been set; if so, use it
 if [ ! -z "${BUILDNUMBER}" ] ; then
@@ -186,16 +202,8 @@ pkg_add_from_url()
 
 packages()
 {
-  # NOTE: Also adjust the Nvidia drivers accordingly below. TODO: Use one set of variables
-  if [ $MAJOR -eq 12 ] ; then
-    # echo "Major version 12, hence using release_2 packages since quarterly can be missing packages from one day to the next"
-    # sed -i '' -e 's|quarterly|release_2|g' "${uzip}/etc/pkg/FreeBSD.conf"
-    echo "Major version 12, using quarterly packages"
-  elif [ $MAJOR -eq 13 ] ; then
-    echo "Major version 13, using quarterly packages"
-    # sed -i '' -e 's|quarterly|release_1|g' "${uzip}/etc/pkg/FreeBSD.conf"
-  elif [ $MAJOR -eq 14 ] ; then
-    echo "Major version 14, hence changing /etc/pkg/FreeBSD.conf to use latest packages"
+  echo "Major version ${MAJOR}, using ${PKGS} packages"
+  if [ "${PKGS}" = "latest" ] ; then
     sed -i '' -e 's|quarterly|latest|g' "${uzip}/etc/pkg/FreeBSD.conf"
   fi
   cp /etc/resolv.conf ${uzip}/etc/resolv.conf
@@ -266,6 +274,7 @@ user()
 {
   # This is now done ad-hoc at boot time because we would
   # need to constuct $HOME from skel anyway
+  :
 }
 
 dm()
@@ -308,18 +317,13 @@ initgfx()
 {
   /usr/local/sbin/pkg-static -c ${uzip} update # Needed if we are shipping additional repos 
   if [ "${arch}" != "i386" ] ; then
-    if [ $MAJOR -lt 14 ] ; then
-      PKGS="quarterly"
-      # PKGS="latest" # This must match what we specify in packages()
-    else
-      PKGS="latest"
-    fi
-
     # 390 needed for Nvidia Quadro 2000, https://github.com/helloSystem/hello/discussions/241#discussioncomment-1599131
     # 340 needed for Nvidia 320M
     for ver in '' 390 340 304; do
         # pkgfile=$(/usr/local/sbin/pkg-static -c ${uzip} rquery %n-%v.txz nvidia-driver${ver:+-$ver})
-        pkgfile=$(/usr/local/sbin/pkg-static -c ${uzip} rquery %n-%v.pkg nvidia-driver${ver:+-$ver})
+        # Query only the FreeBSD repository, whose URL the fetch below uses; 14.3 and later
+        # also configure a FreeBSD-kmods repository, which would add a second line
+        pkgfile=$(/usr/local/sbin/pkg-static -c ${uzip} rquery -r FreeBSD %n-%v.pkg nvidia-driver${ver:+-$ver})
         fetch -o "${cache}/" "https://pkg.freebsd.org/FreeBSD:${MAJOR}:amd64/${PKGS}/All/${pkgfile}"
         mkdir -p "${uzip}/usr/local/nvidia/${ver:-latest}/"
         tar xfC "${cache}"/${pkgfile} "${uzip}/usr/local/nvidia/${ver:-latest}/"

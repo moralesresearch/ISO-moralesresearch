@@ -17,7 +17,8 @@ cd /tmp/system-overlay
 # https://papers.co/desktop/vg41-ribbon-abstract-art-blue-pattern/
 # https://papers.co/desktop/vm16-abstract-blue-rhytm-pattern/
 # wget "https://res.allmacwallpaper.com/get/iMac-21-inch-wallpapers/Minimalist-blue-1920x1080/1686-9.jpg" -O "${uzip}"/usr/local/share/slim/themes/default/background.jpg
-wget -q "https://512pixels.net/downloads/macos-wallpapers/10-0_10.1.png" -O "${uzip}"/usr/local/share/slim/themes/default/background.jpg
+# No longer available (404), and an Apple wallpaper; slim's default background is used until we ship our own
+# wget -q "https://512pixels.net/downloads/macos-wallpapers/10-0_10.1.png" -O "${uzip}"/usr/local/share/slim/themes/default/background.jpg
 
 # Use blue folder icons instead of the ones packaged in FreeBSD which have yellow folder icons
 # Don't extract directly in /tmp, as tar will modify its permissions
@@ -54,7 +55,7 @@ rm macOSBigSur.tar.gz
 wget "https://raw.githubusercontent.com/helloSystem/hello/master/branding/computer-hello.png" -O "${uzip}"/usr/local/share/icons/elementary-xfce/devices/128/computer-hello.png
 
 # KWin
-if [ "${MAJOR}" == "13" ] ; then
+if [ "${MAJOR}" = "13" ] ; then
   wget -q "https://github.com/helloSystem/KWin/releases/download/main-13.1/KWin.app.zip"
 else
   wget -q "https://github.com/helloSystem/KWin/releases/download/main-14.0/KWin.app.zip"
@@ -98,9 +99,15 @@ mv dsbexec "${uzip}/usr/local/bin/"
 rm -f dsbexec_FreeBSD.zip
 
 # Menu
-wget -q https://github.com/helloSystem/Menu/releases/download/continuous/Menu_FreeBSD.zip
+# The continuous release no longer has a FreeBSD build; 2022-08-14 is the latest one
+wget -q https://github.com/helloSystem/Menu/releases/download/2022-08-14/Menu_FreeBSD.zip
 unzip Menu_FreeBSD.zip
 rm -f Menu_FreeBSD.zip
+# That build is packaged as Menu.AppDir, but start-hello launches /System/Menu.app/Menu.
+# Like the AppDir's own AppRun, the entry point is a symlink to the binary, which finds
+# its plugins relative to its real location (usr/bin/../lib/menubar/plugins)
+mv Menu.AppDir Menu.app
+ln -s usr/bin/Menu Menu.app/Menu
 
 # TODO: Get self-hosted gmenudbusmenuproxy
 # because the one from pkg pulls in a lot of KDE Plasma
@@ -258,10 +265,10 @@ mv "QTerminal.app" "${uzip}/Applications/Utilities/"
 rm QTerminal_FreeBSD.zip
 
 # Needed for /usr/local/bin/mountarchive
-wget -c -q "https://github.com/helloSystem/ISO/releases/download/assets/fuse-archive.zip"
-unzip fuse-archive.zip
-sudo mv fuse-archive "${uzip}/usr/local/bin/"
-rm fuse-archive.zip
+# The release asset is now the bare binary rather than a zip
+wget -c -q "https://github.com/helloSystem/ISO/releases/download/assets/fuse-archive"
+chmod +x fuse-archive
+mv fuse-archive "${uzip}/usr/local/bin/"
 
 # cp "${uzip}"/usr/local/share/applications/usr_local_lib_qt5_bin_assistant.desktop "${uzip}"/tmp/documentation.desktop
 # sed -i -e 's|^GenericName=.*|GenericName=Documentation|g' "${uzip}"/tmp/documentation.desktop
@@ -278,10 +285,10 @@ mount_nullfs ${packages} ${uzip}/var/cache/pkg
 mount -t devfs devfs ${uzip}/dev
 
 # Needed for translations in the helloSystem/Utilities repository
-chroot "${uzip}" python3 -m pip install translate-toolkit
+chroot "${uzip}" python3 -m pip install --break-system-packages translate-toolkit
 
 # Needed for Display.app
-chroot "${uzip}" python3 -m pip install pyedid
+chroot "${uzip}" python3 -m pip install --break-system-packages pyedid
 
 # Needed for FUSE mounting by users
 chmod 1777 ${uzip}/media
@@ -307,7 +314,7 @@ IGNORE_OSVERSION=yes /usr/local/sbin/pkg-static -c "${uzip}" add "https://github
 # Prevent the hello package from being upgraded with an unrelated package of the same name
 # and prevent the modifications made to the system in this script from being overwritten
 # by package updates done by the user at a later time; FIXME: Find a cleaner way
-chroot "${uzip}" pkg lock -y hello automount slim dejavu liberation-fonts-ttf
+chroot "${uzip}" pkg lock -y sunos automount slim dejavu liberation-fonts-ttf
 rm ${uzip}/etc/resolv.conf
 umount ${uzip}/var/cache/pkg
 umount ${uzip}/dev
@@ -519,16 +526,23 @@ chroot ${uzip} pkg remove -y python37 || true
 chroot ${uzip} pkg remove -y python36 || true
 chroot ${uzip} pkg remove -y python27 || true
 
-# Amend /etc/os-release by helloSystem specific entries
+# Point the CPE at the FreeBSD release the image is actually built from.
+# In FreeBSD base, /etc/os-release is a symlink that sed -i cannot edit;
+# the sunos overlay replaces it with a regular file
+if [ -f "${uzip}/etc/os-release" ] && [ ! -L "${uzip}/etc/os-release" ] ; then
+  sed -i '' -e "s|^CPE_NAME=.*|CPE_NAME=cpe:/o:freebsd:freebsd:${VER}|" "${uzip}/etc/os-release"
+fi
+
+# Amend /etc/os-release by Sun/OS specific entries
 # https://www.freedesktop.org/software/systemd/man/os-release.html
-if [ -n  "${CIRRUS_CHANGE_IN_REPO}" ] ; then
-  SHA=$(echo "${CIRRUS_CHANGE_IN_REPO}" | head -c 7)
-  cat >> "${uzip}/etc/os-release" << '  eof'
-  VARIANT=\"UNIX\"
-  VARIANT_ID=\"hellosystem\"
-  IMAGE_ID=\"iso\"
-  IMAGE_VERSION="\${BUILDNUMBER}_"${SHA}\"
-  eof
+SHA=$(echo "${CIRRUS_CHANGE_IN_REPO:-${CI_COMMIT_SHA}}" | cut -c1-7)
+if [ -n "${SHA}" ] ; then
+  cat >> "${uzip}/etc/os-release" <<EOF
+VARIANT="UNIX"
+VARIANT_ID="sunos"
+IMAGE_ID="iso"
+IMAGE_VERSION="${BUILDNUMBER}_${SHA}"
+EOF
 fi
 
 # Make sure members of group wheel can manipulate /Applications
@@ -545,4 +559,4 @@ find "${uzip}"/Applications -type f -exec chmod g+rw {} \;
 
 # Create and lock a package that depends on non-automatic packages on the ISO
 # https://github.com/helloSystem/hello/issues/161#issuecomment-1267976086
-chroot "${uzip}" /usr/local/libexec/lock-hellosystem-essential-packages
+chroot "${uzip}" /usr/local/libexec/lock-unix-essential-packages
