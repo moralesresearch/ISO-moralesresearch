@@ -56,7 +56,7 @@ fi
 # settings/script.${desktop} downloads the matching sources for kernel modules
 export arch version FTPDIRECTORY
 cache="${livecd}/${arch}/cache"
-base="${cache}/${version}/base"
+export base="${cache}/${version}/base"
 export packages="${cache}/packages"
 iso="${livecd}/iso"
 export uzip="${livecd}/uzip"
@@ -224,8 +224,17 @@ packages()
   mount -t devfs devfs ${uzip}/dev
   # FIXME: In the following line, the hardcoded "i386" needs to be replaced by "${arch}" - how?
   for p in common-${MAJOR} ${desktop} ${EDITION:+${desktop}.${EDITION}}; do
-    sed '/^#/d;/\!i386/d;/^cirrus:/d;/^https:/d' "${cwd}/settings/packages.$p" | \
+    sed '/^#/d;/\!i386/d;/^cirrus:/d;/^https:/d;/^optional:/d' "${cwd}/settings/packages.$p" | \
       xargs /usr/local/sbin/pkg-static -c "${uzip}" install -y
+    # Install packages beginning with 'optional:' if the repository has them: FreeBSD's
+    # package builders sometimes skip a package for a while, and the build should not fail
+    for name in $(sed -ne 's,^optional:,,p' "${cwd}/settings/packages.$p"); do
+      if [ -n "$(/usr/local/sbin/pkg-static -c "${uzip}" rquery -U %n "${name}" 2>/dev/null)" ] ; then
+        /usr/local/sbin/pkg-static -c "${uzip}" install -y "${name}"
+      else
+        echo "Optional package ${name} is not in the repository; skipping it"
+      fi
+    done
     pkg_cachedir=/var/cache/pkg
     # Install packages beginning with 'cirrus:'
     mkdir -p ${uzip}${pkg_cachedir}/furybsd-cirrus
@@ -569,7 +578,8 @@ split()
   ISO_SIZE=$(stat -f%z "${isopath}")
   if [ $ISO_SIZE -gt $THRESHOLD_BYTES ] ; then
     echo "Size exceeds GitHub Releases file size limit; splitting the ISO"
-    split -d -b "$THRESHOLD_BYTES" -a 1 "${isopath}" "${isopath}.part"
+    # 'command': a bare split would call this function
+    command split -d -b "$THRESHOLD_BYTES" -a 1 "${isopath}" "${isopath}.part"
     echo "Split the ISO, deleting the original"
     rm "${isopath}"
     ls -l "${isopath}"*

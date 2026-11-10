@@ -4,7 +4,8 @@
 # and the two packages conflict with each other
 subversion
 vim
-vscode
+# optional: FreeBSD's package builders sometimes skip vscode for a while
+optional:vscode
 emacs
 evolution-data-server
 # Services from OS X Server 3.0.2 (os-x-server-src), as current FreeBSD packages.

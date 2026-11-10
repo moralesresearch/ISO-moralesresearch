@@ -328,24 +328,46 @@ install -m 0444 "${uzip}/tmp/apple-zsh/zshrc" "${uzip}/usr/local/etc/zshrc"
 install -m 0444 "${uzip}/tmp/apple-zsh/zprofile" "${uzip}/usr/local/etc/zprofile"
 grep -qx /usr/local/bin/zsh "${uzip}/etc/shells" || echo /usr/local/bin/zsh >> "${uzip}/etc/shells"
 rm -rf "${uzip}/tmp/apple-zsh"
-# liveuser's login shell: a zsh that does not run means no desktop session
-chroot "${uzip}" /usr/local/bin/zsh -l -c 'zmodload zsh/datetime && print "zsh ${ZSH_VERSION} works"'
+# liveuser's login shell: a zsh that does not run means no desktop session.
+# Also start an interactive shell on a terminal, as Terminal does, which reads
+# Apple's zshrc: it must not report errors (as "zsh:" or "<file>:<line>:").
+# With a home that has startup files and no terminal input, so that zsh does not
+# start its new-user setup menu and wait for a key when the build runs in a terminal
+mkdir -p "${uzip}/tmp/zsh-home"
+touch "${uzip}/tmp/zsh-home/.zshenv"
+chroot "${uzip}" sh -c '/usr/local/bin/zsh -l -c "zmodload zsh/datetime && print \"zsh \${ZSH_VERSION} works\"" && \
+  HOME=/tmp/zsh-home TERM=xterm script -q /tmp/zsh-i.log /usr/local/bin/zsh -i -l -c "exit 0" < /dev/null'
+if grep -q -E 'zsh:|zshrc:|zprofile:|zshenv:|zlogin:' "${uzip}/tmp/zsh-i.log" ; then
+  echo "An interactive zsh printed:" ; cat "${uzip}/tmp/zsh-i.log" ; exit 1
+fi
+rm -rf "${uzip}/tmp/zsh-i.log" "${uzip}/tmp/zsh-home"
 
 # AppleFileSystemDriver for FreeBSD, from Morales Research's AppleFileSystemDriver
 # repository: the geom_applefs kernel module gives Apple disks stable names by
 # the UUIDs macOS uses (/dev/hfsid, /dev/apfscid and /dev/apfsid), and applefsid
-# prints them. It is built on the build host, which runs the same release, against
-# that release's kernel sources
-AFSD_COMMIT="336532c6ed47873fdfffd4faa4595970f2dbdbdb"
-git clone -q https://gitlab.com/morales-research-corporation/os-development/AppleFileSystemDriver.git /tmp/afsd
-git -C /tmp/afsd checkout -q "${AFSD_COMMIT}"
-fetch -q -o /tmp/afsd-src.txz "https://download.freebsd.org/ftp/${FTPDIRECTORY}/${arch}/${version}/src.txz"
-mkdir -p /tmp/afsd-src
-tar -xf /tmp/afsd-src.txz -C /tmp/afsd-src usr/src/sys
-make -C /tmp/afsd/freebsd SYSDIR=/tmp/afsd-src/usr/src/sys
-install -m 0555 /tmp/afsd/freebsd/kmod/geom_applefs.ko "${uzip}/boot/modules/"
-install -m 0555 /tmp/afsd/freebsd/applefsid/applefsid "${uzip}/usr/local/sbin/"
-rm -rf /tmp/afsd /tmp/afsd-src /tmp/afsd-src.txz
+# prints them. It is built inside the image, with its compiler, against the kernel
+# sources of the release it ships (src.txz is kept with base.txz and kernel.txz, so
+# that all three are from the same build), and loaded at boot.
+# The image's compiler only builds for the host's architecture
+AFSD_COMMIT="91d1847b1b119c211a6481f30d5e0a70d23af57f"
+if [ "${arch}" = "$(uname -p)" ] ; then
+  if [ ! -f "${base}/src.txz" ] ; then
+    fetch -q -o "${base}/src.txz.part" "https://download.freebsd.org/ftp/${FTPDIRECTORY}/${arch}/${version}/src.txz"
+    mv "${base}/src.txz.part" "${base}/src.txz"
+  fi
+  rm -rf "${uzip}/tmp/afsd" "${uzip}/tmp/afsd-src"
+  git clone -q https://gitlab.com/morales-research-corporation/os-development/AppleFileSystemDriver.git "${uzip}/tmp/afsd"
+  git -C "${uzip}/tmp/afsd" checkout -q "${AFSD_COMMIT}"
+  mkdir -p "${uzip}/tmp/afsd-src"
+  tar -xf "${base}/src.txz" -C "${uzip}/tmp/afsd-src" usr/src/sys
+  chroot "${uzip}" make -C /tmp/afsd/freebsd SYSDIR=/tmp/afsd-src/usr/src/sys
+  install -m 0555 "${uzip}/tmp/afsd/freebsd/kmod/geom_applefs.ko" "${uzip}/boot/modules/"
+  install -m 0555 "${uzip}/tmp/afsd/freebsd/applefsid/applefsid" "${uzip}/usr/local/sbin/"
+  rm -rf "${uzip}/tmp/afsd" "${uzip}/tmp/afsd-src"
+  chroot "${uzip}" sysrc -f /etc/rc.conf.local kld_list+=geom_applefs
+else
+  echo "Not building AppleFileSystemDriver: building ${arch} on $(uname -p)"
+fi
 
 if [ "${EDITION}" = "server" ] ; then
   # Apple's mod_bw (OS X Server 3.0.2, apache_mod_bw-205), the bandwidth limiting
@@ -354,8 +376,7 @@ if [ "${EDITION}" = "server" ] ; then
   git clone -q https://github.com/apple-oss-distributions/apache_mod_bw.git "${uzip}/tmp/apache_mod_bw"
   git -C "${uzip}/tmp/apache_mod_bw" checkout -q "${APPLE_MOD_BW_COMMIT}"
   tar -xzf "${uzip}/tmp/apache_mod_bw/mod_bw-0.8.tgz" -C "${uzip}/tmp/apache_mod_bw"
-  # Apache 2.4 replaced conn_rec's remote_addr; useragent_addr is the client's address
-  sed -i '' -e 's|r->connection->remote_addr|r->useragent_addr|g' "${uzip}/tmp/apache_mod_bw/mod_bw/mod_bw.c"
+  patch -s -d "${uzip}/tmp/apache_mod_bw/mod_bw" -p0 < "${cwd}/settings/patches/apple-mod_bw/patch-mod_bw.c"
   chroot "${uzip}" sh -c 'cd /tmp/apache_mod_bw/mod_bw && \
     /usr/local/sbin/apxs -c mod_bw.c && /usr/local/sbin/apxs -i -n bw mod_bw.la'
   echo "LoadModule bw_module libexec/apache24/mod_bw.so" > "${uzip}/usr/local/etc/apache24/modules.d/250_mod_bw.conf"
@@ -363,7 +384,7 @@ if [ "${EDITION}" = "server" ] ; then
   install -m 0444 "${uzip}/tmp/apache_mod_bw/mod_bw/LICENSE" "${uzip}/usr/local/share/doc/mod_bw/LICENSE"
   rm -rf "${uzip}/tmp/apache_mod_bw"
   # Apache must start with the module
-  chroot "${uzip}" /usr/local/sbin/httpd -t -D DUMP_MODULES | grep bw_module
+  chroot "${uzip}" sh -c '/usr/local/sbin/httpd -t -D DUMP_MODULES' | grep bw_module
 
   # ChatServer, the XMPP server of OS X Server 3.0.2 (ChatServer-409), from
   # Morales Research's ChatServer repository, in place of the prosody package:
@@ -383,7 +404,7 @@ if [ "${EDITION}" = "server" ] ; then
       echo "ChatServer: ${c} is missing libraries" ; exit 1
     fi
   done
-  chroot "${uzip}" /usr/local/sbin/jabber_autobuddy --version
+  chroot "${uzip}" sh -c '/usr/local/sbin/jabber_autobuddy --version'
   if chroot "${uzip}" service chatserver enabled ; then
     echo "ChatServer must not be enabled by default" ; exit 1
   fi
@@ -413,13 +434,12 @@ IGNORE_OSVERSION=yes /usr/local/sbin/pkg-static -c "${uzip}" add "https://github
 # Prevent the hello package from being upgraded with an unrelated package of the same name
 # and prevent the modifications made to the system in this script from being overwritten
 # by package updates done by the user at a later time; FIXME: Find a cleaner way
-# Only lock the ones that are installed: liberation-fonts-ttf, for example, is not
-# pulled in on FreeBSD 14, and pkg lock fails for packages that are not installed
-for p in sunos automount slim dejavu liberation-fonts-ttf ; do
-  if chroot "${uzip}" pkg info -e "${p}" ; then
-    chroot "${uzip}" pkg lock -y "${p}"
-  fi
-done
+chroot "${uzip}" pkg lock -y sunos automount slim dejavu
+# Nothing pulls in liberation-fonts-ttf on FreeBSD 14, and pkg lock fails for a
+# package that is not installed
+if chroot "${uzip}" pkg info -e liberation-fonts-ttf ; then
+  chroot "${uzip}" pkg lock -y liberation-fonts-ttf
+fi
 rm ${uzip}/etc/resolv.conf
 umount ${uzip}/var/cache/pkg
 umount ${uzip}/dev
