@@ -224,8 +224,17 @@ packages()
   mount -t devfs devfs ${uzip}/dev
   # FIXME: In the following line, the hardcoded "i386" needs to be replaced by "${arch}" - how?
   for p in common-${MAJOR} ${desktop} ${EDITION:+${desktop}.${EDITION}}; do
-    sed '/^#/d;/\!i386/d;/^cirrus:/d;/^https:/d' "${cwd}/settings/packages.$p" | \
+    sed '/^#/d;/\!i386/d;/^cirrus:/d;/^https:/d;/^optional:/d' "${cwd}/settings/packages.$p" | \
       xargs /usr/local/sbin/pkg-static -c "${uzip}" install -y
+    # Install packages beginning with 'optional:' if the repository has them: FreeBSD's
+    # package builders sometimes skip a package for a while, and the build should not fail
+    for name in $(sed -ne 's,^optional:,,p' "${cwd}/settings/packages.$p"); do
+      if [ -n "$(/usr/local/sbin/pkg-static -c "${uzip}" rquery -U %n "${name}" 2>/dev/null)" ] ; then
+        /usr/local/sbin/pkg-static -c "${uzip}" install -y "${name}"
+      else
+        echo "Optional package ${name} is not in the repository; skipping it"
+      fi
+    done
     pkg_cachedir=/var/cache/pkg
     # Install packages beginning with 'cirrus:'
     mkdir -p ${uzip}${pkg_cachedir}/furybsd-cirrus
