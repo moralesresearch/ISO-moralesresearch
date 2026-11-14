@@ -393,15 +393,21 @@ if [ "${EDITION}" = "server" ] ; then
   # Directory. make install creates the jabber user (93) and installs the
   # chatserver rc.d script; the service stays off until chatserver_enable=YES.
   # This runs while /dev is mounted in the image, which configure needs
-  CHATSERVER_COMMIT="60f7f9beec638db319ef5376108487215b0da77c"
+  CHATSERVER_COMMIT="ba55f527392fd2c5b19dc04a8838d717e468d86d"
+  rm -rf "${uzip}/tmp/chatserver"
   git clone -q https://gitlab.com/morales-research-corporation/os-development/ChatServer.git "${uzip}/tmp/chatserver"
   git -C "${uzip}/tmp/chatserver" checkout -q "${CHATSERVER_COMMIT}"
   chroot "${uzip}" sh -c 'cd /tmp/chatserver && make && make install'
   rm -rf "${uzip}/tmp/chatserver"
-  # The components must load their libraries, and the service must be off
-  for c in router sm s2s c2s ; do
-    if chroot "${uzip}" ldd "/usr/local/libexec/jabberd/${c}" | grep 'not found' ; then
-      echo "ChatServer: ${c} is missing libraries" ; exit 1
+  # The components, their modules and the sign-in helper must be there and load
+  # their libraries, and the service must be installed but off
+  for f in router sm s2s c2s pamauth ; do
+    test -x "${uzip}/usr/local/libexec/jabberd/${f}"
+  done
+  test -x "${uzip}/usr/local/etc/rc.d/chatserver"
+  for f in "${uzip}"/usr/local/libexec/jabberd/* "${uzip}"/usr/local/lib/jabberd/*.so ; do
+    if chroot "${uzip}" ldd "${f#"${uzip}"}" | grep 'not found' ; then
+      echo "ChatServer: ${f#"${uzip}"} is missing libraries" ; exit 1
     fi
   done
   chroot "${uzip}" sh -c '/usr/local/sbin/jabber_autobuddy --version'
